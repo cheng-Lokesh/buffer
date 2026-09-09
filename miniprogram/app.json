@@ -1,0 +1,30 @@
+{
+  "pages": [
+    "pages/reality/index",
+    "pages/future/index",
+    "pages/conditions/index",
+    "pages/history/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "缓冲区",
+    "navigationBarBackgroundColor": "#f5eedf",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5eedf",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#766d60",
+    "selectedColor": "#285b3d",
+    "backgroundColor": "#fffaf0",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/reality/index", "text": "现在" },
+      { "pagePath": "pages/future/index", "text": "未来" },
+      { "pagePath": "pages/conditions/index", "text": "条件" },
+      { "pagePath": "pages/history/index", "text": "记录" }
+    ]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

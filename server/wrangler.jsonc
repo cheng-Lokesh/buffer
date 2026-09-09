@@ -1,0 +1,12 @@
+{
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "buffer-v12-1-reality-parser",
+	"main": "worker.js",
+	"compatibility_date": "2026-06-08",
+	"observability": {
+		"enabled": true
+	},
+	"vars": {
+		"ALLOWED_ORIGIN": "http://127.0.0.1:5173"
+	}
+}

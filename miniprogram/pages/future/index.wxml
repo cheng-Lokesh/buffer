@@ -1,0 +1,24 @@
+<view class="screen {{skinClass}}" data-skin="{{skin.id}}">
+  <image class="skin-art future-art" src="{{skin.artwork}}" mode="aspectFill" aria-hidden="true" />
+  <view class="future-art-fade"></view>
+  <view class="screen-head compact-head"><view><view class="eyebrow">只基于已确认条件</view><view class="page-title">现金未来轨迹</view></view><view class="skin-badge">{{skin.shortName}}</view></view>
+  <view class="scene-tabs" role="tablist" aria-label="未来视图"><button wx:for="{{scenes}}" wx:key="id" class="scene-tab {{item.active ? 'active' : ''}}" data-index="{{item.index}}" bindtap="selectScene">{{item.label}}</button></view>
+  <swiper class="scene-deck" current="{{activeSceneIndex}}" bindchange="changeScene" duration="180">
+    <swiper-item><view class="scene-slide">
+      <view class="scene-heading"><view><view class="section-title">未来怎么走</view><view class="muted">实线之后都是预计，不伪装成事实</view></view><view class="scene-index">01</view></view>
+      <view class="segment"><button class="segment-item {{rangeDays === 30 ? 'active' : ''}}" data-range="30" bindtap="setRange">30天</button><button class="segment-item {{rangeDays === 60 ? 'active' : ''}}" data-range="60" bindtap="setRange">60天</button><button class="segment-item {{rangeDays === 90 ? 'active' : ''}}" data-range="90" bindtap="setRange">90天</button></view>
+      <view class="surface future-chart-shell" wx:if="{{projection.valid}}"><canvas type="2d" id="future-chart" class="future-canvas" aria-label="现金未来轨迹"></canvas><view class="future-summary"><view><text class="small muted">预计触及保留金</text><strong>{{touchLabel}}</strong></view><view><text class="small muted">区间末余额</text><strong class="number">{{endBalanceLabel}}</strong></view></view></view>
+      <view class="surface future-unknown" wx:else><view class="section-title">还缺少基础条件</view><view class="muted">确认现金起点、保留边界和最低日常支出后，轨迹才会出现。</view><button class="primary" bindtap="goConditions">去确认条件</button></view>
+    </view></swiper-item>
+    <swiper-item><view class="scene-slide">
+      <view class="scene-heading"><view><view class="section-title">点位解释</view><view class="muted">每个数字都能回到同一条算式</view></view><view class="scene-index">02</view></view>
+      <scroll-view class="date-strip" scroll-x="true" show-scrollbar="false" wx:if="{{projection.valid}}"><view class="date-row"><button wx:for="{{pointOptions}}" wx:key="date" class="date-chip {{item.date === selectedDate ? 'active' : ''}}" data-date="{{item.date}}" bindtap="selectPoint">{{item.label}}</button></view></scroll-view>
+      <view class="surface equation-card" wx:if="{{selectedPoint}}"><view class="equation-date">{{selectedPoint.date}} · {{selectedPoint.label}}</view><view class="equation-grid"><view><text>期初余额</text><strong>{{openingLabel}}</strong></view><view><text>确认流入</text><strong>{{inflowLabel}}</strong></view><view><text>固定流出</text><strong>{{recurringLabel}}</strong></view><view><text>日常支出</text><strong>{{dailyLabel}}</strong></view><view><text>一次事件</text><strong>{{eventLabel}}</strong></view><view class="equation-result"><text>期末余额</text><strong>{{closingLabel}}</strong></view></view><view class="evidence-count">依据 {{selectedPoint.evidenceIds.length}} 条 · 算式已核对</view></view>
+      <view class="surface future-unknown" wx:else><view class="section-title">暂无可解释点位</view><view class="muted">先确认基础条件。</view></view>
+    </view></swiper-item>
+    <swiper-item><view class="scene-slide">
+      <view class="scene-heading"><view><view class="section-title">模拟一个变化</view><view class="muted">只在沙盘中计算，不会修改现实</view></view><view class="scene-index">03</view></view>
+      <view class="surface simulation-card"><view class="field"><view class="field-label"><text>如果每日支出变为</text><text class="muted">元/天</text></view><input class="input number" type="digit" value="{{simulationDaily}}" placeholder="输入一个假设数字" bindinput="setSimulationDaily" /></view><button class="primary simulation-run" bindtap="runSimulation">查看模拟结果</button><view class="simulation-result" wx:if="{{simulationResult}}"><view><text>可支撑天数变化</text><strong>{{simulationDaysLabel}}</strong></view><view><text>区间末余额变化</text><strong>{{simulationBalanceLabel}}</strong></view></view><view class="field-error" wx:if="{{simulationError}}">{{simulationError}}</view><view class="button-row simulation-actions"><button class="secondary" bindtap="discardSimulation">放弃模拟</button><button class="secondary" bindtap="saveSimulation">保存模拟草稿</button></view><view class="simulation-boundary">模拟永远不会自动写入现实条件。</view></view>
+    </view></swiper-item>
+  </swiper>
+</view>

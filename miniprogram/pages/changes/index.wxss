@@ -1,0 +1,39 @@
+.change-orbit { position: absolute; top: 120rpx; right: -70rpx; width: 320rpx; height: 320rpx; opacity: .22; }
+.orbit-core, .orbit-ring { position: absolute; top: 50%; left: 50%; border-radius: 50%; transform: translate(-50%, -50%); }
+.orbit-core { width: 76rpx; height: 76rpx; background: currentColor; }
+.orbit-ring { border: 3rpx solid currentColor; }
+.ring-one { width: 180rpx; height: 180rpx; }
+.ring-two { width: 300rpx; height: 300rpx; }
+.orbit-weather .orbit-core { border-radius: 50% 50% 42% 58%; }
+.orbit-garden .orbit-ring { border-radius: 0; transform: translate(-50%, -50%) rotate(45deg); }
+.orbit-islands .orbit-ring { border-radius: 58% 42% 55% 45%; }
+.orbit-riso-bands .orbit-ring { border-width: 12rpx; }
+.orbit-magnetic-field .orbit-ring { border-style: dashed; }
+.now-ribbon { display: flex; align-items: center; justify-content: space-between; gap: 24rpx; margin-top: 22rpx; }
+.ribbon-zone { margin-top: 2rpx; font-size: 34rpx; font-weight: 800; }
+.ribbon-days { font-size: 46rpx; font-weight: 850; }
+.record-trigger { width: 100%; margin: 0; }
+.trigger-caption { margin-top: 10rpx; text-align: center; font-size: 22rpx; opacity: .58; }
+.form-actions { margin-top: 28rpx; }
+.empty-history { text-align: center; }
+.empty-symbol { margin-bottom: 8rpx; font-size: 68rpx; line-height: 1; opacity: .45; }
+.change-list { position: relative; padding-left: 34rpx; }
+.change-list::before { position: absolute; top: 24rpx; bottom: 24rpx; left: 11rpx; width: 2rpx; content: ""; background: currentColor; opacity: .18; }
+.change-entry { position: relative; margin-bottom: 18rpx; }
+.entry-marker { position: absolute; top: 28rpx; left: -35rpx; width: 20rpx; height: 20rpx; border: 6rpx solid currentColor; border-radius: 50%; background: inherit; }
+.entry-time { font-size: 21rpx; opacity: .62; }
+.entry-money { margin-top: 4rpx; font-size: 31rpx; font-weight: 800; }
+.entry-parts { margin-top: 4rpx; }
+.entry-note { margin-top: 12rpx; font-size: 25rpx; }
+.skin-wallet-weather .entry-marker { border-radius: 45% 55% 48% 52%; background: #e7b72e; }
+.skin-pixel-garden .entry-marker { border-radius: 0; background: #6c8c51; }
+.skin-felt-islands .entry-marker { width: 24rpx; height: 18rpx; border-radius: 55% 45% 60% 40%; background: #d9a067; }
+.skin-riso-waves .entry-marker { width: 28rpx; height: 12rpx; border: 3rpx solid #111; border-radius: 0; background: #f12d36; transform: rotate(-8deg); }
+.skin-sticker-field .entry-marker { border-color: #ff4b82; background: #ffcb48; }
+.scene-slide .record-trigger { margin-top: 22rpx; }
+.overview-latest-change { margin-top: 14rpx; padding: 16rpx 18rpx; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12rpx; }
+.latest-change-value { margin-top: 4rpx; font-size: 26rpx; font-weight: 850; }
+.latest-change-note { max-width: 230rpx; overflow: hidden; font-size: 21rpx; opacity: .66; text-overflow: ellipsis; white-space: nowrap; }
+.overview-latest-change + .record-trigger { margin-top: 14rpx; }
+.scene-slide .change-entry { margin-bottom: 12rpx; padding: 18rpx; }
+.scene-slide .entry-note { margin-top: 6rpx; }

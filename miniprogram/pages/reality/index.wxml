@@ -1,0 +1,47 @@
+<view class="screen {{skinClass}}" data-skin="{{skin.id}}">
+  <image class="skin-art art-top" src="{{skin.artwork}}" mode="aspectFill" aria-hidden="true" />
+  <view class="art-fade"></view>
+  <view class="screen-head compact-head"><view><view class="eyebrow">我的当前情况</view><view class="page-title">现金缓冲在哪里</view></view><view class="skin-badge">{{skin.shortName}}</view></view>
+  <view class="scene-tabs" role="tablist" aria-label="当前情况视图"><button wx:for="{{scenes}}" wx:key="id" class="scene-tab {{item.active ? 'active' : ''}}" data-index="{{item.index}}" bindtap="selectScene">{{item.label}}</button></view>
+  <swiper class="scene-deck" current="{{activeSceneIndex}}" bindchange="changeScene" duration="180">
+    <swiper-item><view class="scene-slide position-slide">
+      <view class="reality-hero surface" wx:if="{{model.status === 'current'}}"><view class="hero-meta"><view class="zone-pill zone-{{model.zone}}">{{model.zoneLabel}}</view><view class="small muted">当前可支撑</view></view><view class="hero-number number">{{model.runwayDays}}<text class="hero-unit">天</text></view><view class="zone-track"><view wx:for="{{zones}}" wx:key="id" class="zone-cell zone-{{item.id}} {{item.active ? 'active' : ''}}"><view>{{item.label}}</view><view class="zone-range">{{item.range}}</view></view></view></view>
+      <view class="reality-core-facts surface" wx:if="{{model.status === 'current'}}"><view><text>当前余额</text><strong class="number">{{balanceLabel}}</strong></view><view><text>保留金</text><strong class="number">{{reserveLabel}}</strong></view><view><text>最低日支出</text><strong class="number">{{dailyLabel}}</strong></view><view><text>最近确认</text><strong>{{confirmedLabel}}</strong></view></view>
+      <view class="unknown-scene surface" wx:else><view class="unknown-mark">？</view><view class="section-title">还没有确认现金情况</view><view class="muted">确认三个数字后，这里才会出现结论。</view><button class="primary unknown-action" bindtap="goChange">确认三个数字</button></view>
+      <view class="scene-footnote">核心情况已经在这一屏，左右滑动可看构成和依据</view>
+    </view></swiper-item>
+    <swiper-item><view class="scene-slide">
+      <view class="scene-heading"><view><view class="section-title">现金构成</view><view class="muted">只呈现已经确认的数字</view></view><view class="scene-index">02</view></view>
+      <view class="surface composition-panel" wx:if="{{model.status === 'current'}}"><view class="composition-bar"><view class="composition-reserve" style="width: {{model.composition.reservePercent}}%"></view><view class="composition-usable" style="width: {{model.composition.usablePercent}}%"></view></view><view class="money-grid"><view><view class="small muted">当前余额</view><view class="money-value number">{{balanceLabel}}</view></view><view><view class="small muted">保留金</view><view class="money-value number">{{reserveLabel}}</view></view><view><view class="small muted">可使用</view><view class="money-value number">{{usableLabel}}</view></view></view><view class="composition-caption">保留金 {{model.composition.reservePercent}}% · 可使用 {{model.composition.usablePercent}}%</view></view>
+      <view class="unknown-scene surface" wx:else><view class="unknown-mark">○</view><view class="section-title">构成保持留白</view><view class="muted">没有确认数字时，不制造比例。</view><button class="primary unknown-action" bindtap="goChange">去确认</button></view>
+    </view></swiper-item>
+    <swiper-item><view class="scene-slide">
+      <view class="scene-heading"><view><view class="section-title">结论依据</view><view class="muted">知道数字从哪里来</view></view><view class="scene-index">03</view></view>
+      <view class="surface evidence-card"><view><view class="small muted">最近确认</view><view class="evidence-value">{{confirmedLabel}}</view></view><view class="evidence-rule"><text>余额</text><text>− 保留金</text><text>÷ 最低日支出</text></view><view class="muted">可能收入不会进入结论。现实没有变化时，不需要操作。</view></view>
+      <button class="secondary update-button" bindtap="goChange">现实有变化</button>
+    </view></swiper-item>
+  </swiper>
+
+  <view class="capture-shade" wx:if="{{captureOpen}}" bindtap="closeCapture"></view>
+  <view class="capture-sheet surface" wx:if="{{captureOpen}}" catchtap="noop" role="dialog" aria-label="现实有变化">
+    <view class="capture-head"><view><view class="eyebrow">现实有变化</view><view class="section-title">{{captureMode === 'home' ? '让 Buffer 重新看清现在' : captureMode === 'balance' ? '确认现在有多少钱' : captureMode === 'language' ? '说一句发生了什么' : captureMode === 'confirm' ? '我理解为' : captureMode === 'precise' ? '精确修改' : '现实已更新'}}</view></view><button class="capture-close" bindtap="closeCapture" aria-label="关闭现实更新">×</button></view>
+    <view class="capture-message" wx:if="{{captureMessage}}">{{captureMessage}}</view>
+
+    <view wx:if="{{captureMode === 'home'}}" class="capture-home">
+      <view class="capture-due" wx:if="{{dueItems.length}}"><view class="capture-kicker">待确认 · {{dueItems.length}} 项原预计事项</view><view class="due-row" wx:for="{{dueItems}}" wx:key="id"><view><text>{{item.date}}</text><strong>{{item.name}}</strong></view><view><strong>{{item.amountLabel}}</strong><button class="primary" data-id="{{item.id}}" bindtap="confirmDue">如期发生</button></view></view></view>
+      <button class="capture-path" data-mode="balance" bindtap="setCaptureMode"><view><strong>确认现在有多少钱</strong><text>只用一个数字重新锚定现金</text></view><text>›</text></button>
+      <button class="capture-path" data-mode="language" bindtap="setCaptureMode"><view><strong>说一句发生了什么</strong><text>先整理成事实，确认后才会写入</text></view><text>›</text></button>
+      <button class="capture-precise" data-mode="precise" bindtap="setCaptureMode">精确修改 ›</button>
+    </view>
+
+    <view wx:elif="{{captureMode === 'balance'}}" class="capture-step"><button class="capture-back" data-mode="home" bindtap="setCaptureMode">‹ 返回</button><view class="muted">Buffer 当前用于计算未来的实际可用现金总额</view><view class="capture-field"><text>现在实际可以使用的现金是多少？</text><view><text>¥</text><input type="digit" value="{{captureBalance}}" placeholder="0.00" bindinput="setCaptureBalance" /></view></view><view class="capture-note">不用逐个填写账户，也不用解释中间差额。</view><button class="primary capture-confirm" bindtap="confirmBalance">确认这个余额</button></view>
+
+    <view wx:elif="{{captureMode === 'language'}}" class="capture-step"><button class="capture-back" data-mode="home" bindtap="setCaptureMode">‹ 返回</button><view class="muted">写下已经发生或已经确定的变化</view><textarea class="capture-text" value="{{captureText}}" placeholder="今天交了1500房租，现在还有4200" maxlength="500" bindinput="setCaptureText"></textarea><view class="capture-language-actions"><button class="secondary" bindtap="voiceUnavailable">语音</button><button class="primary" bindtap="parseNatural">整理成事实</button></view><view class="capture-note">小程序语音转写暂不可用。文字输入完整可用，确认前不会写入现实。</view></view>
+
+    <view wx:elif="{{captureMode === 'confirm'}}" class="capture-step"><button class="capture-back" data-mode="language" bindtap="setCaptureMode">‹ 修改原句</button><view class="muted">请看清这些事实，现在还没有写入现实。</view><view class="candidate-row" wx:for="{{candidateItems}}" wx:key="index"><view><text>{{item.label}}</text><strong>{{item.name || item.label}}</strong></view><view><strong>{{item.direction}}{{item.amountLabel}}</strong><button data-index="{{item.index}}" bindtap="removeCandidate" aria-label="移除这项变化">×</button></view></view><button class="primary capture-confirm" disabled="{{!candidateItems.length}}" bindtap="confirmCandidates">确认这些变化</button></view>
+
+    <view wx:elif="{{captureMode === 'precise'}}" class="capture-step"><button class="capture-back" data-mode="home" bindtap="setCaptureMode">‹ 返回</button><view class="muted">只有需要逐项修改时才进入这里</view><button class="capture-path" data-mode="balance" bindtap="setCaptureMode"><view><strong>当前余额</strong><text>确认实际可用现金总额</text></view><text>›</text></button><button class="capture-path" bindtap="goPreciseConditions"><view><strong>固定收入、固定支出与未来事项</strong><text>修改持续影响未来的规律</text></view><text>›</text></button></view>
+
+    <view wx:else class="capture-complete"><view class="complete-mark">✓</view><view class="eyebrow">现实已更新</view><view class="complete-balance number">{{balanceLabel}}</view><view class="muted">未来已重新计算</view><button class="primary" bindtap="closeCapture">查看现在</button></view>
+  </view>
+</view>

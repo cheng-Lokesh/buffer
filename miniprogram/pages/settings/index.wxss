@@ -1,0 +1,34 @@
+.skin-scroll { width: calc(100vw - 64rpx); margin-right: -32rpx; }
+.skin-row { display: inline-flex; gap: 18rpx; min-width: 100%; padding: 4rpx 32rpx 20rpx 0; }
+.skin-option { position: relative; width: 400rpx; height: 310rpx; padding: 0; overflow: hidden; text-align: left; color: #2f2a22; background: #fff; border-radius: 24rpx; box-shadow: 0 10rpx 26rpx rgba(50,42,30,.14); }
+.skin-option:active { transform: scale(.96); }
+.skin-option.selected { box-shadow: 0 0 0 5rpx currentColor, 0 12rpx 28rpx rgba(50,42,30,.18); }
+.skin-thumb { width: 100%; height: 190rpx; }
+.skin-option-copy { padding: 16rpx 20rpx 18rpx; }
+.skin-option-name { font-size: 27rpx; font-weight: 850; }
+.skin-option-desc { margin-top: 2rpx; font-size: 20rpx; line-height: 1.45; opacity: .66; }
+.selected-mark { position: absolute; top: 14rpx; right: 14rpx; padding: 6rpx 12rpx; color: #fff; background: #285b3d; border-radius: 999rpx; font-size: 19rpx; line-height: 1.3; }
+.option-ink-contours { border-radius: 2rpx; font-family: "Songti SC", serif; }
+.option-wallet-weather { border: 4rpx solid #083d2c; border-radius: 24rpx; box-shadow: 8rpx 8rpx 0 rgba(8,61,44,.2); }
+.option-pixel-garden { border: 5rpx solid #6b5738; border-radius: 0; box-shadow: 8rpx 8rpx 0 #d2b878; }
+.option-felt-islands { border-radius: 48rpx; }
+.option-riso-waves { border: 5rpx solid #111; border-radius: 0; box-shadow: 10rpx 10rpx 0 #111; }
+.option-sticker-field { color: #f4ecd8; background: #1b202a; border-radius: 28rpx 16rpx 32rpx 18rpx; }
+.vault-status { display: flex; align-items: center; gap: 18rpx; }
+.vault-dot { flex: none; width: 24rpx; height: 24rpx; border-radius: 50%; background: #4f7a58; box-shadow: 0 0 0 10rpx rgba(79,122,88,.12); }
+.vault-title { font-size: 27rpx; font-weight: 800; }
+.vault-count { margin-top: 24rpx; }
+.vault-count .number { margin-right: 8rpx; font-size: 46rpx; font-weight: 850; }
+.vault-action { width: 100%; margin: 14rpx 0 0; }
+.backup-note { margin-top: 16rpx; font-size: 21rpx; opacity: .58; }
+.boundary-panel { padding-top: 20rpx; }
+.boundary-item { display: grid; grid-template-columns: 54rpx 1fr; gap: 14rpx; padding: 18rpx 0; border-bottom: 1rpx solid rgba(60,50,40,.12); font-size: 24rpx; }
+.boundary-item:last-child { border-bottom: 0; }
+.boundary-item text { font-weight: 850; opacity: .46; }
+.danger-zone { padding: 12rpx 0 30rpx; }
+.danger-zone button { width: 100%; margin: 0; }
+.skin-sticker-field .boundary-item { border-color: rgba(244,236,216,.14); }
+.skin-sticker-field .vault-dot { background: #62d66f; box-shadow: 0 0 18rpx rgba(98,214,111,.6); }
+.scene-slide .skin-scroll { margin-top: 14rpx; }
+.scene-slide .boundary-panel { padding: 16rpx 22rpx; }
+.scene-slide .boundary-item { padding: 14rpx 0; }

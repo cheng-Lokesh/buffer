@@ -1,0 +1,43 @@
+.future-art { top: 170rpx; left: 0; height: 430rpx; opacity: .14; }
+.future-art-fade { position: absolute; z-index: 1; top: 130rpx; right: 0; left: 0; height: 480rpx; background: linear-gradient(to bottom, rgba(245,238,223,.18), #f5eedf 88%); pointer-events: none; }
+.future-chart-shell { margin-top: 16rpx; padding: 18rpx; }
+.future-canvas { width: 100%; height: 300rpx; }
+.future-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14rpx; margin-top: 10rpx; }
+.future-summary > view { padding: 12rpx; background: rgba(255,255,255,.34); }
+.future-summary text, .future-summary strong { display: block; }
+.future-summary strong { margin-top: 3rpx; font-size: 25rpx; }
+.future-unknown { margin-top: 16rpx; }
+.future-unknown .primary { width: 100%; margin-top: 20rpx; }
+.date-strip { width: 100%; white-space: nowrap; }
+.date-row { display: inline-flex; gap: 10rpx; padding: 2rpx 4rpx 14rpx; }
+.date-chip { min-width: 120rpx; min-height: 66rpx; padding: 0 18rpx; color: inherit; background: rgba(255,255,255,.54); font-size: 22rpx; line-height: 66rpx; }
+.date-chip.active { color: #fff; background: #285b3d; }
+.equation-card { padding: 18rpx; }
+.equation-date { margin-bottom: 12rpx; font-size: 23rpx; font-weight: 800; }
+.equation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8rpx; }
+.equation-grid > view { min-width: 0; padding: 10rpx 12rpx; background: rgba(255,255,255,.34); }
+.equation-grid text, .equation-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.equation-grid text { font-size: 19rpx; opacity: .62; }
+.equation-grid strong { font-size: 23rpx; }
+.equation-result { grid-column: 1 / -1; }
+.evidence-count { margin-top: 12rpx; font-size: 21rpx; opacity: .62; }
+.simulation-card { padding: 18rpx; }
+.simulation-card .field { margin-top: 0; }
+.simulation-run { width: 100%; margin-top: 14rpx; }
+.simulation-result { display: grid; grid-template-columns: 1fr 1fr; gap: 10rpx; margin-top: 14rpx; }
+.simulation-result > view { padding: 12rpx; background: rgba(255,255,255,.36); }
+.simulation-result text, .simulation-result strong { display: block; }
+.simulation-result text { font-size: 20rpx; opacity: .64; }
+.simulation-result strong { margin-top: 2rpx; font-size: 25rpx; }
+.simulation-actions { margin-top: 14rpx; }
+.simulation-boundary { margin-top: 10rpx; text-align: center; font-size: 20rpx; opacity: .58; }
+.skin-wallet-weather .date-chip.active { background: #d9502f; }
+.skin-pixel-garden .date-chip { border-radius: 0; }
+.skin-pixel-garden .date-chip.active { background: #5d7b48; }
+.skin-felt-islands .date-chip { border-radius: 999rpx; }
+.skin-felt-islands .date-chip.active { background: #4f7a58; }
+.skin-riso-waves .date-chip { border: 3rpx solid #111; border-radius: 0; }
+.skin-riso-waves .date-chip.active { color: #111; background: #f12d36; }
+.skin-sticker-field .future-art-fade { background: linear-gradient(to bottom, rgba(17,21,28,.1), #11151c 88%); }
+.skin-sticker-field .date-chip { background: #242b37; }
+.skin-sticker-field .date-chip.active { color: #11151c; background: #ff4b82; }

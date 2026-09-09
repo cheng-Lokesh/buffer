@@ -1,0 +1,22 @@
+.condition-art { top: 190rpx; left: 0; height: 380rpx; opacity: .12; }
+.condition-art-fade { position: absolute; z-index: 1; top: 150rpx; right: 0; left: 0; height: 440rpx; background: linear-gradient(to bottom, rgba(245,238,223,.14), #f5eedf 90%); pointer-events: none; }
+.condition-form, .inline-condition-form { padding: 18rpx; }
+.condition-save { width: 100%; margin-top: 16rpx; }
+.quiet-copy { margin-top: 12rpx; text-align: center; font-size: 21rpx; opacity: .58; }
+.choice-row, .condition-input-row { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12rpx; }
+.choice-row radio-group, .event-kind { display: flex; gap: 16rpx; font-size: 23rpx; }
+.choice-row label, .event-kind label { display: flex; align-items: center; gap: 4rpx; }
+.picker-box { min-height: 76rpx; padding: 0 14rpx; display: grid; place-items: center; box-sizing: border-box; background: rgba(255,255,255,.72); border: 2rpx solid rgba(50,42,30,.14); border-radius: 14rpx; font-size: 23rpx; }
+.condition-input-row { margin-top: 12rpx; }
+.condition-input-row .input { min-height: 76rpx; margin-top: 0; }
+.switch-line { margin-top: 12rpx; display: flex; align-items: center; justify-content: space-between; gap: 12rpx; font-size: 21rpx; }
+.condition-list { margin-top: 12rpx; display: grid; gap: 8rpx; }
+.condition-row { padding: 12rpx 16rpx; display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.condition-row text, .condition-row strong { display: block; }
+.condition-row text { margin-top: 1rpx; font-size: 19rpx; opacity: .62; }
+.condition-row > strong { flex: none; font-size: 23rpx; }
+.skin-pixel-garden .picker-box { border-radius: 0; border: 4rpx solid #6b5738; }
+.skin-felt-islands .picker-box { border-radius: 28rpx; }
+.skin-riso-waves .picker-box { border: 3rpx solid #111; border-radius: 0; }
+.skin-sticker-field .condition-art-fade { background: linear-gradient(to bottom, rgba(17,21,28,.08), #11151c 90%); }
+.skin-sticker-field .picker-box { color: #f4ecd8; background: #242b37; border-color: rgba(244,236,216,.2); }

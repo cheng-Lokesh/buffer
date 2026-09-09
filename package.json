@@ -1,0 +1,48 @@
+{
+  "name": "buffer-zone-reality-system",
+  "version": "0.35.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js --host 127.0.0.1",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "preview": "node node_modules/vite/bin/vite.js preview --host 127.0.0.1",
+    "verify:miniprogram": "node scripts/verify-miniprogram-release.cjs",
+    "test:miniprogram": "node --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs",
+    "test:miniprogram:coverage": "node --experimental-test-coverage --test-coverage-include=miniprogram/core/*.js --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=90 --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs test/v8-platform-parity.test.cjs test/v12-miniprogram-reality-capture.test.cjs",
+    "test:v12:red": "node --test test/v12-reality-capture.test.js test/v12-reality-parser.test.js test/v12-ui-contract.test.cjs",
+    "test:v12:core": "node --test test/v12-reality-capture.test.js test/v12-reality-parser.test.js test/v12-backup-contract.test.js",
+    "test:v12:contract": "node --test test/v12-ui-contract.test.cjs test/v12-governance.test.cjs",
+    "test:v12:browser": "npm run build && node --test test/v12-browser-acceptance.test.cjs",
+    "capture:v12:final": "npm run build && node scripts/capture-v12-final.cjs",
+    "test:v12:miniprogram": "node --test test/v12-miniprogram-reality-capture.test.cjs",
+    "test:v12:coverage": "node --experimental-test-coverage --test-coverage-include=src/v12-reality-capture.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 --test test/v12-reality-capture.test.js test/v12-reality-parser.test.js",
+    "test:v12:complete": "npm run test:v12:core && npm run test:v12:contract && npm run test:v12:miniprogram && npm run test:v12:coverage && npm run test:v12:browser && npm run verify:miniprogram",
+    "test:v12-1:core": "node --test test/v12-1-router.test.js test/v12-1-resolver.test.js test/v12-1-server.test.js test/v12-1-product-integration.test.js test/v12-1-ui-contract.test.cjs",
+    "test:v12-1:language": "node --test test/v12-1-language-corpus.test.js test/v12-1-live-evaluator.test.js",
+    "test:v12-1:resolver": "node --test test/v12-1-resolver.test.js",
+    "test:v12-1:security": "node --test test/v12-1-server.test.js test/v12-1-vite-security.test.js test/v12-1-ui-contract.test.cjs",
+    "test:v12-1:governance": "node --test test/v12-1-governance.test.cjs test/v12-1-current-tree-authority.test.cjs test/v12-1-public-history-boundary.test.cjs",
+    "test:v12-1:legacy-retirement": "node --test test/v12-1-legacy-retirement.test.cjs",
+    "test:v12-1:legacy-retirement:coverage": "node --experimental-test-coverage --test-coverage-include=src/legacy-data-archive.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 --test test/v12-1-legacy-retirement.test.cjs",
+    "test:v12-1:browser": "npm run build && node --test test/v12-1-browser-acceptance.test.cjs",
+    "test:v12-1:live-ai": "node scripts/run-v12-1-live-ai-eval.mjs",
+    "test:v12-1:coverage": "node --experimental-test-coverage --test-coverage-include=src/v12-1-reality-parser.js --test-coverage-include=src/v12-1-browser-adapter.js --test-coverage-include=server/v12-1-deepseek.js --test-coverage-include=server/v12-1-local-origin.js --test-coverage-lines=80 --test-coverage-branches=70 --test-coverage-functions=80 --test test/v12-1-router.test.js test/v12-1-resolver.test.js test/v12-1-server.test.js test/v12-1-product-integration.test.js test/v12-1-vite-security.test.js",
+    "test:v12-1:complete": "npm run test:v12-1:core && npm run test:v12-1:language && npm run test:v12-1:security && npm run test:v12-1:governance && npm run test:v12-1:legacy-retirement && npm run test:v12-1:coverage && npm run test:v12-1:browser && npm run test:v12:complete && npm run test:v12-1:live-ai"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/plugin-transform-react-jsx-self": "^7.29.7",
+    "@babel/plugin-transform-react-jsx-source": "^7.29.7",
+    "playwright": "^1.60.0",
+    "wrangler": "^4.98.0"
+  }
+}
