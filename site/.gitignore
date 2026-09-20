@@ -1,0 +1,19 @@
+# 运行/编辑产生的中间物
+_a_*.html
+_v_*.html
+_dbg*.html
+_db*.html
+_m*.html
+_c*.py
+_s*.py
+*.log
+__pycache__/
+.playwright-cli/
+.impeccable/
+
+# 素材候选与导出（体积大，不入库）
+output/
+aurora_contact.jpg
+aurora_crop_preview*.jpg
+eso_panorama_preview.jpg
+primary_crop_preview.jpg
