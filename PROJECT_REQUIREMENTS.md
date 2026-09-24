@@ -4,16 +4,19 @@
 
 ## 当前状态
 
-V12.1 LLM Reality Parser 已完成，`v0.35.0` 通过真实 DeepSeek、语言安全、现实采集、迁移、备份、六皮肤、官网和小程序验收。当前停止，不得开始 OCR、银行同步、AI Chat、Final Hardening、V13、新页面或新核心模型。
+V12.1 LLM Reality Parser 已完成，`v0.35.0` 通过真实 DeepSeek、语言安全、现实采集、迁移、备份、官网和小程序验收。官网现固定使用当前夜空视觉，不提供皮肤选择。当前停止，不得开始 OCR、银行同步、AI Chat、Final Hardening、V13、新页面或新核心模型。
+
+2026-09-24 本人明确批准仅在现有四空间内增加本机 CSV 账单观察试用，具体边界见 [`docs/product-design/BILL_IMPORT_PRIVATE_PILOT.md`](docs/product-design/BILL_IMPORT_PRIVATE_PILOT.md)。此批准不解除上述其他禁令，也不代表可公开发布或法律合规已获证明。
 
 ## 权威顺序
 
 1. [`docs/V12_1_PRODUCT_CONTRACT.md`](docs/V12_1_PRODUCT_CONTRACT.md)：最高产品合同与边界。
 2. [`AGENTS.md`](AGENTS.md)：Agent 阅读入口与不可违反规则。
 3. [`PRODUCT.md`](PRODUCT.md)：当前产品定义的易读说明。
-4. [`DESIGN.md`](DESIGN.md)：当前界面、交互、皮肤和文案规则。
-5. [`docs/v12-1/`](docs/v12-1/)：V12.1 审计、架构、实现与验收证据。
-6. [`docs/v12-1/08-final-acceptance.md`](docs/v12-1/08-final-acceptance.md)：最终测试证据与发布结论。
+4. [`DESIGN.md`](DESIGN.md)：当前界面、交互、视觉外观和文案规则。
+5. [`docs/CURRENT_FRONTEND_BASELINE.md`](docs/CURRENT_FRONTEND_BASELINE.md)：当前阶段唯一前端实现与视觉基线。
+6. [`docs/v12-1/`](docs/v12-1/)：V12.1 审计、架构、实现与验收证据。
+7. [`docs/v12-1/08-final-acceptance.md`](docs/v12-1/08-final-acceptance.md)：最终测试证据与发布结论。
 
 发生冲突时，低优先级文档不得覆盖高优先级文档。
 
@@ -33,7 +36,7 @@ V12.1 LLM Reality Parser 已完成，`v0.35.0` 通过真实 DeepSeek、语言安
 
 - 修复可复现的 P0、P1 或数据完整性问题；
 - 修复备份、迁移、恢复和跨设备语义问题；
-- 修复浏览器、手机、小程序、六皮肤和无障碍回归；
+- 修复浏览器、手机、小程序、当前单一视觉外观和无障碍回归；
 - 记录真实使用摩擦，不直接把观察升级为功能。
 
 任何 OCR、银行同步、AI Chat、Final Hardening、V13、新空间、新核心模型或范围扩张都属于后续产品决策，不能因为技术上可实现而自动开始。
@@ -53,6 +56,8 @@ V12.1 LLM Reality Parser 已完成，`v0.35.0` 通过真实 DeepSeek、语言安
 - 数据迁移和备份边界未受影响；
 - 桌面与手机真实路径，若修改了可见界面；
 - 本地、上游、远端和标签 SHA，若进行版本发布。
+
+涉及前端时，只允许从 `site/index.src.html` 开始修改，并由 `site/build_index.py` 生成 `site/index.html`。不得用根目录 Vite 页面、历史实现或重新生成的视觉方案覆盖当前阶段前端基线。
 
 ## Historical / Superseded
 

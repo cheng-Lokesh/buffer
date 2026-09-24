@@ -1,5 +1,7 @@
 # Buffer 静态前端（site/）
 
+> **当前阶段唯一前端基线。** 后续前端优化从 `index.src.html` 增量进行，并通过 `build_index.py` 生成 `index.html`。未经用户明确确认，不得整体替换现有夜空全景、侧栏、四空间布局、字体、发光层级或动效方向。
+
 这是 Buffer 的静态前端实现：单页 `index.html`，内含「现在 / 未来 / 条件 / 记录」四个空间，
 星空全景背景 + 玻璃拟态组件 + 龙藏手写文案。与仓库中 Vite/React 版本共享同一份产品定义
 （见根目录 `PRODUCT.md`、`DESIGN.md` 与 `docs/`）。

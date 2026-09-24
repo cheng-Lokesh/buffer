@@ -9,6 +9,7 @@ miniprogram/private.config.json
 .wrangler/
 tmp-desktop.png
 tmp-mobile.png
+output/playwright/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

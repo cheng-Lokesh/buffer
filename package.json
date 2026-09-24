@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node node_modules/vite/bin/vite.js --host 127.0.0.1",
-    "build": "node node_modules/vite/bin/vite.js build",
-    "preview": "node node_modules/vite/bin/vite.js preview --host 127.0.0.1",
+    "dev": "node server/site-server.mjs",
+    "start": "node server/site-server.mjs",
+    "build": "python site/build_index.py",
+    "deploy:pilot:site": "npm run build && node --test test/site-edgeone-pilot.test.cjs && node scripts/deploy-edgeone-site-release.mjs",
+    "preview": "node server/site-server.mjs",
     "verify:miniprogram": "node scripts/verify-miniprogram-release.cjs",
     "test:miniprogram": "node --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs",
     "test:miniprogram:coverage": "node --experimental-test-coverage --test-coverage-include=miniprogram/core/*.js --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=90 --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs test/v8-platform-parity.test.cjs test/v12-miniprogram-reality-capture.test.cjs",
@@ -26,6 +28,7 @@
     "test:v12-1:legacy-retirement": "node --test test/v12-1-legacy-retirement.test.cjs",
     "test:v12-1:legacy-retirement:coverage": "node --experimental-test-coverage --test-coverage-include=src/legacy-data-archive.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 --test test/v12-1-legacy-retirement.test.cjs",
     "test:v12-1:browser": "npm run build && node --test test/v12-1-browser-acceptance.test.cjs",
+    "test:v12-1:site": "npm run build && node --test test/v12-1-site-live-product.test.cjs test/v12-1-site-retained-capabilities.test.cjs test/v12-1-site-journey.test.cjs test/v12-1-site-visual-density.test.cjs",
     "test:v12-1:live-ai": "node scripts/run-v12-1-live-ai-eval.mjs",
     "test:v12-1:coverage": "node --experimental-test-coverage --test-coverage-include=src/v12-1-reality-parser.js --test-coverage-include=src/v12-1-browser-adapter.js --test-coverage-include=server/v12-1-deepseek.js --test-coverage-include=server/v12-1-local-origin.js --test-coverage-lines=80 --test-coverage-branches=70 --test-coverage-functions=80 --test test/v12-1-router.test.js test/v12-1-resolver.test.js test/v12-1-server.test.js test/v12-1-product-integration.test.js test/v12-1-vite-security.test.js",
     "test:v12-1:complete": "npm run test:v12-1:core && npm run test:v12-1:language && npm run test:v12-1:security && npm run test:v12-1:governance && npm run test:v12-1:legacy-retirement && npm run test:v12-1:coverage && npm run test:v12-1:browser && npm run test:v12:complete && npm run test:v12-1:live-ai"

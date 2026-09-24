@@ -90,6 +90,17 @@ P0: 0. P1: 0. P2: 0. P3: 0. Scope-excluded work is recorded in `DEFERRED.md` and
 
 The V12 tag `v0.34.0` remains on the exact start commit. V12.1 is versioned as `v0.35.0`; the release commit, annotated tag, remote branch SHA and GitHub release are verified as the final publication step. User-owned untracked files are not added or deleted.
 
+## 2026-09-21 readability and plain-language pass
+
+- The four live spaces no longer expose internal labels such as `REALITY`, `FORECAST`, `TEMPORAL MEMORY`, `VISUAL SKIN`, “区间末解释”, “区间差额”, “末日构成”, “现实快照” or “预测快照”.
+- Body and explanatory copy is at least 15px, labels and actions are at least 14px, and only dates or chart metadata may use 13px.
+- No user-readable product copy relies on 12px text. Desktop compaction uses concise copy, spacing, and geometry rather than microtext.
+- Repeated heading descriptions, field definitions, navigation subtitles, confirmation reminders, and empty-state explanations are not shown. Calculation assumptions, privacy boundaries, and confirmation boundaries remain visible where they affect interpretation or safety.
+- The Now space is capped at 1680px on ultra-wide screens; its conclusion panel stays at or below 380px, the summary rail shares its top and bottom edges, and an empty upcoming-cashflow rail is removed rather than reserving blank space.
+- The visible workflow now uses direct labels such as “更新情况”, “试算变化”, “估算依据”, “下一步核对” and “确认保存”.
+- `1280 × 720`, `1440 × 900` and `375 × 812` were checked. All four desktop spaces still fit without whole-page vertical scrolling, and mobile has no horizontal overflow.
+- `npm run test:v12-1:site`: 6/6 PASS. Product-truth checks: 6/6 PASS.
+
 ## Final verdict
 
 Buffer V12.1 satisfies the product contract: natural language becomes reviewable candidate facts, deterministic code enforces the safety boundary, and Reality changes only after explicit user confirmation. Verdict: **RELEASED**.

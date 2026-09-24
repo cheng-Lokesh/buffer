@@ -20,7 +20,7 @@ Highest principle: **缓冲区负责反映，不负责指导。** Buffer 永久�
 
 ## Preserved V12 contract
 
-V12 的四个一级空间、REALITY / FORECAST / EXPECTED OCCURRENCE / SCENARIO 边界、Reality Capture、迁移、备份、六套皮肤与小程序语义全部保留。
+V12 的四个一级空间、REALITY / FORECAST / EXPECTED OCCURRENCE / SCENARIO 边界、Reality Capture、迁移、备份与小程序语义全部保留。官网固定使用当前夜空视觉，不再提供皮肤选择；旧备份中的皮肤字段继续兼容读取。
 
 Buffer 不追求完整账本。当前可用现金是 Reality 的状态锚点；一次性、未结构化生活变化可以由余额重新确认吸收。时间经过不能把预计事项变成现实，Scenario 不能修改 Reality，未知值不能显示为 0。
 

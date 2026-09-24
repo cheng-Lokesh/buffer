@@ -6,6 +6,8 @@
 
 > **AI 阅读边界：** 公开仓库只保留 V12/V12.1 当前产品快照。旧版产品材料已从 GitHub 分支、标签与可读历史中移除，只存于仓库拥有者持有的离线 Git bundle；任何 AI 都不得从仓库外的旧上下文定义当前产品。完整边界见 [`docs/HISTORY_BOUNDARY.md`](docs/HISTORY_BOUNDARY.md)。
 
+> **当前阶段前端：** [`site/index.src.html`](site/index.src.html) 是唯一可编辑视觉源码，[`site/index.html`](site/index.html) 是构建交付文件。今后的前端优化均以这套实现为基础，不从根目录 Vite 页面、历史截图或其他工作区重新起稿。完整规则见 [`docs/CURRENT_FRONTEND_BASELINE.md`](docs/CURRENT_FRONTEND_BASELINE.md)。
+
 ## 一句话定义
 
 Buffer 是供唯一真实用户在收入不稳定时期使用的**个人现实状态与未来模拟工具**：它如实反映已确认的现金现实，推导未来，并比较用户明确建立的假设；它不指导用户该做什么。
