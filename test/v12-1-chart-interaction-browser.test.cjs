@@ -31,6 +31,9 @@ test('selecting a chart date changes its visible detail without changing confirm
     await baseline.getByRole('button', { name: '确认保存' }).click();
 
     const nowChart = page.getByTestId('now-forecast-chart');
+    const nowReadout = nowChart.locator('.tip');
+    assert.equal(await nowReadout.isVisible(), true);
+    assert.match(await nowReadout.innerText(), /\d{4}年\d{1,2}月\d{1,2}日[\s\S]*¥/);
     const nowAxisLabels = await nowChart.locator('svg text').allTextContents();
     assert.ok(nowAxisLabels.some((label) => /\d{1,2}月\d{1,2}日/.test(label)), 'timeline must display calendar dates');
     assert.ok(nowAxisLabels.some((label) => label.includes('¥4,000')), 'timeline must pair a date with its balance');
@@ -47,15 +50,26 @@ test('selecting a chart date changes its visible detail without changing confirm
 
     await page.getByRole('button', { name: '未来', exact: true }).click();
     const futureChart = page.getByTestId('future-chart-body');
+    const futureReadout = page.getByTestId('future-chart-readout');
+    assert.equal(await futureReadout.isVisible(), true, 'future chart should show a date and balance on the plot before any click');
+    assert.match(await futureReadout.innerText(), /\d{4}年\d{1,2}月\d{1,2}日[\s\S]*¥/);
     const futureAxisLabels = await futureChart.locator('svg text').allTextContents();
     assert.ok(futureAxisLabels.some((label) => /\d{1,2}月\d{1,2}日/.test(label)));
     assert.ok(futureAxisLabels.some((label) => label.includes('¥4,000')));
     await futureChart.click({ position: { x: 80, y: 120 } });
     assert.match(await page.getByTestId('future-selected-point').innerText(), /预计余额/);
+    assert.match(await futureReadout.innerText(), /预计余额[\s\S]*¥/);
     await futureChart.focus();
     await page.keyboard.press('End');
     assert.match(await page.getByTestId('future-selected-point').innerText(), /第 90 天/);
     await page.setViewportSize({ width: 320, height: 700 });
+    assert.equal(await futureReadout.isVisible(), true, 'selected point must remain readable on narrow phones');
+    const readoutInsideChart = await futureChart.evaluate((chart) => {
+      const plot = chart.getBoundingClientRect();
+      const label = chart.querySelector('[data-testid="future-chart-readout"]').getBoundingClientRect();
+      return label.left >= plot.left - 1 && label.right <= plot.right + 1 && label.top >= plot.top - 1;
+    });
+    assert.equal(readoutInsideChart, true, 'selected point label must stay inside the chart');
     const axis = futureChart.locator('svg .axis-date');
     assert.equal(await axis.count(), 3, 'narrow screens should keep a small set of readable date anchors');
     const boxes = await axis.evaluateAll((nodes) => nodes.map((node) => {
