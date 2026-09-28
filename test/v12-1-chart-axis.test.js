@@ -26,5 +26,10 @@ test('balance axis remains readable when all amounts are equal', () => {
 test('axis amounts stay compact while selected values can remain exact', () => {
   assert.equal(formatChartAmount(4_000), '¥4,000');
   assert.equal(formatChartAmount(123_000), '¥12.3万');
+  assert.equal(formatChartAmount(120_000_000), '¥1.2亿');
   assert.equal(formatChartAmount(-350), '−¥350');
+});
+
+test('empty or invalid values get a finite fallback scale', () => {
+  assert.deepEqual(createBalanceAxis([NaN, Infinity]), { min: 0, max: 1, step: 1, ticks: [0, 1] });
 });

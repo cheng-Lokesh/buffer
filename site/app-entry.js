@@ -7,6 +7,7 @@ import { persistProductState } from '../src/product-persistence.js';
 import { prepareBackupPreview } from '../src/backup-restore.js';
 import { buildNowDashboardFacts } from '../src/v12-1-now-dashboard-facts.js';
 import { buildNowForecastChart } from '../src/v12-1-now-forecast-chart.js';
+import { createBalanceAxis, formatChartAmount } from '../src/v12-1-chart-axis.js';
 import { parseBillCsv, summarizeBillRows, setBillRowStatus, includeClearBillRows } from '../src/bill-observation.js';
 
 const SITE_APPEARANCE = 'ink-contours';
@@ -158,6 +159,10 @@ function cadence(item) {
   return ({ daily: '每天', weekly: '每周', monthly: '每月', once: '一次' })[item.frequency] || '已确认';
 }
 
+function futureChartBalance(point, index) {
+  return (index === 0 ? point.openingBalanceCents : point.closingBalanceCents) / 100;
+}
+
 function paintFutureReferenceChart(root, points, reserveCents, scenarioPoints = [], touchDate = '', selectedDay = null) {
   const body = root.querySelector('[data-testid="future-chart-body"]');
   const svg = body?.querySelector('svg.chart');
@@ -167,31 +172,27 @@ function paintFutureReferenceChart(root, points, reserveCents, scenarioPoints = 
   const left = 58;
   const right = width - 18;
   const top = 28;
-  const bottom = height - 38;
-  const amounts = [...points, ...scenarioPoints].map((point) => point.closingBalanceCents / 100);
-  const min = Math.min(0, reserveCents / 100, ...amounts);
-  const max = Math.max(1, reserveCents / 100, ...amounts);
-  const rough = Math.max(1, (max - min) / 3);
-  const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 5, 10].find((value) => value * magnitude >= rough) * magnitude;
-  const axisMin = Math.floor(min / step) * step;
-  const axisMax = Math.max(axisMin + step, Math.ceil(max * 1.15 / step) * step);
+  const bottom = height - 54;
+  const amounts = [
+    ...points.map(futureChartBalance),
+    ...scenarioPoints.map(futureChartBalance)
+  ];
+  const { min: axisMin, max: axisMax, ticks: axisTicks } = createBalanceAxis([reserveCents / 100, ...amounts]);
   const xAt = (index) => left + index / Math.max(1, points.length - 1) * (right - left);
   const yAt = (amount) => bottom - (amount - axisMin) / (axisMax - axisMin) * (bottom - top);
-  const path = (items) => items.map((point, index) => `${index ? 'L' : 'M'}${xAt(index).toFixed(1)},${yAt(point.closingBalanceCents / 100).toFixed(1)}`).join(' ');
-  const grid = Array.from({ length: Math.min(8, Math.floor((axisMax - axisMin) / step) + 1) }, (_, index) => axisMin + index * step)
-    .map((amount) => `<line x1="${left}" y1="${yAt(amount)}" x2="${right}" y2="${yAt(amount)}" stroke="rgba(140,170,230,.13)"/><text x="${left - 9}" y="${yAt(amount) + 4}" text-anchor="end" fill="#8299bf">${new Intl.NumberFormat('zh-CN').format(amount)}</text>`).join('');
-  const tickCount = width < 470 ? 2 : 4;
+  const path = (items) => items.map((point, index) => `${index ? 'L' : 'M'}${xAt(index).toFixed(1)},${yAt(futureChartBalance(point, index)).toFixed(1)}`).join(' ');
+  const grid = axisTicks.map((amount) => `<line x1="${left}" y1="${yAt(amount)}" x2="${right}" y2="${yAt(amount)}" stroke="rgba(140,170,230,.13)"/><text x="${left - 9}" y="${yAt(amount) + 4}" text-anchor="end" fill="#8299bf">${formatChartAmount(amount).replace('¥', '')}</text>`).join('');
+  const tickCount = width < 470 ? 2 : 3;
   const ticks = Array.from({ length: tickCount + 1 }, (_, index) => Math.round(index / tickCount * (points.length - 1)))
-    .map((index) => `<text x="${xAt(index)}" y="${height - 15}" text-anchor="${index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}" fill="#8299bf">${index ? dateZh(points[index].date) : '今天'}</text>`).join('');
+    .map((index) => `<text class="axis-date" x="${xAt(index)}" y="${height - 28}" text-anchor="${index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}">${dateZh(points[index].date)}</text><text class="axis-balance" x="${xAt(index)}" y="${height - 12}" text-anchor="${index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}">${formatChartAmount(futureChartBalance(points[index], index))}</text>`).join('');
   const current = points[0];
   const end = points.at(-1);
   const touchIndex = touchDate ? points.findIndex((point) => point.date === touchDate) : -1;
-  const touchMarker = touchIndex >= 0 ? `<line x1="${xAt(touchIndex)}" y1="${yAt(points[touchIndex].closingBalanceCents / 100)}" x2="${xAt(touchIndex)}" y2="${bottom}" stroke="rgba(200,220,255,.4)" stroke-dasharray="3 4"/><circle cx="${xAt(touchIndex)}" cy="${yAt(points[touchIndex].closingBalanceCents / 100)}" r="5" fill="#fff" stroke="#3b82f6" stroke-width="2.4"/>` : '';
+  const touchMarker = touchIndex >= 0 ? `<line x1="${xAt(touchIndex)}" y1="${yAt(futureChartBalance(points[touchIndex], touchIndex))}" x2="${xAt(touchIndex)}" y2="${bottom}" stroke="rgba(200,220,255,.4)" stroke-dasharray="3 4"/><circle cx="${xAt(touchIndex)}" cy="${yAt(futureChartBalance(points[touchIndex], touchIndex))}" r="5" fill="#fff" stroke="#3b82f6" stroke-width="2.4"/>` : '';
   const selected = selectedDay == null ? null : points[selectedDay];
-  const selectedMarker = selected ? `<line x1="${xAt(selectedDay)}" y1="${yAt(selected.closingBalanceCents / 100)}" x2="${xAt(selectedDay)}" y2="${bottom}" stroke="rgba(200,220,255,.55)" stroke-dasharray="3 4"/><circle cx="${xAt(selectedDay)}" cy="${yAt(selected.closingBalanceCents / 100)}" r="7" fill="#fff" stroke="#3b82f6" stroke-width="2.4"/>` : '';
+  const selectedMarker = selected ? `<line x1="${xAt(selectedDay)}" y1="${yAt(futureChartBalance(selected, selectedDay))}" x2="${xAt(selectedDay)}" y2="${bottom}" stroke="rgba(200,220,255,.55)" stroke-dasharray="3 4"/><circle cx="${xAt(selectedDay)}" cy="${yAt(futureChartBalance(selected, selectedDay))}" r="7" fill="#fff" stroke="#3b82f6" stroke-width="2.4"/>` : '';
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.innerHTML = `<defs><linearGradient id="futureReferenceArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a90ff" stop-opacity=".42"/><stop offset="1" stop-color="#3a70e0" stop-opacity="0"/></linearGradient><filter id="futureReferenceGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><text x="${left}" y="18" fill="#8299bf">余额（人民币）</text>${grid}<path d="${path(points)}L${right},${bottom}L${left},${bottom}Z" fill="url(#futureReferenceArea)"/><line x1="${left}" y1="${yAt(reserveCents / 100)}" x2="${right}" y2="${yAt(reserveCents / 100)}" stroke="#fb5e7e" stroke-width="1.6" stroke-dasharray="7 5"/><path d="${path(points)}" fill="none" stroke="#8fc7ff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 5" filter="url(#futureReferenceGlow)"/>${scenarioPoints.length ? `<path d="${path(scenarioPoints)}" fill="none" stroke="#70ddad" stroke-width="2.4" stroke-dasharray="6 5"/>` : ''}<circle cx="${left}" cy="${yAt(current.closingBalanceCents / 100)}" r="4" fill="#cfe8ff"/><circle cx="${right}" cy="${yAt(end.closingBalanceCents / 100)}" r="4" fill="#cfe8ff"/>${touchMarker}${selectedMarker}${ticks}`;
+  svg.innerHTML = `<defs><linearGradient id="futureReferenceArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a90ff" stop-opacity=".42"/><stop offset="1" stop-color="#3a70e0" stop-opacity="0"/></linearGradient><filter id="futureReferenceGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><text x="${left}" y="18" fill="#8299bf">余额（人民币）</text>${grid}<path d="${path(points)}L${right},${bottom}L${left},${bottom}Z" fill="url(#futureReferenceArea)"/><line x1="${left}" y1="${yAt(reserveCents / 100)}" x2="${right}" y2="${yAt(reserveCents / 100)}" stroke="#fb5e7e" stroke-width="1.6" stroke-dasharray="7 5"/><path d="${path(points)}" fill="none" stroke="#8fc7ff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 5" filter="url(#futureReferenceGlow)"/>${scenarioPoints.length ? `<path d="${path(scenarioPoints)}" fill="none" stroke="#70ddad" stroke-width="2.4" stroke-dasharray="6 5"/>` : ''}<circle cx="${left}" cy="${yAt(futureChartBalance(current, 0))}" r="4" fill="#cfe8ff"/><circle cx="${right}" cy="${yAt(futureChartBalance(end, points.length - 1))}" r="4" fill="#cfe8ff"/>${touchMarker}${selectedMarker}${ticks}`;
 }
 
 function billObservationCards() {
@@ -240,21 +241,16 @@ function paintNowReferenceChart(root, chart, summary, node) {
   const left = 54;
   const right = width - 16;
   const top = 30;
-  const bottom = height - 38;
+  const bottom = height - 54;
   const values = chart.points.map((point) => point.balanceCents / 100);
-  const minimum = Math.min(0, summary.reserveCents / 100, ...values);
-  const maximum = Math.max(1, summary.reserveCents / 100, ...values);
-  const roughStep = Math.max(1, (maximum - minimum) / 3);
-  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
-  const step = [1, 2, 5, 10].find((candidate) => candidate * magnitude >= roughStep) * magnitude;
-  const axisMin = Math.min(0, Math.floor(minimum / step) * step);
-  const axisMax = Math.max(step, Math.ceil(maximum * 1.35 / step) * step);
+  const { min: axisMin, max: axisMax, ticks: axisTicks } = createBalanceAxis([summary.reserveCents / 100, ...values]);
   const xAt = (day) => left + day / 90 * (right - left);
   const yAt = (value) => bottom - (value - axisMin) / (axisMax - axisMin) * (bottom - top);
   const path = chart.points.map((point, index) => `${index ? 'L' : 'M'}${xAt(point.day).toFixed(1)},${yAt(point.balanceCents / 100).toFixed(1)}`).join(' ');
-  const grid = Array.from({ length: Math.min(8, Math.floor((axisMax - axisMin) / step) + 1) }, (_, index) => axisMin + index * step)
-    .map((amount) => `<line x1="${left}" y1="${yAt(amount)}" x2="${right}" y2="${yAt(amount)}" stroke="rgba(140,170,230,.12)" /><text x="${left - 9}" y="${yAt(amount) + 4}" text-anchor="end" fill="#8299bf">${new Intl.NumberFormat('zh-CN').format(amount)}</text>`).join('');
-  const ticks = [0, 15, 30, 45, 60, 75, 90].map((day) => `<text x="${xAt(day)}" y="${height - 18}" text-anchor="middle" fill="${day === node.day ? '#cfe2ff' : '#8299bf'}">${day ? `${day} 天` : '今天'}</text>`).join('');
+  const grid = axisTicks.map((amount) => `<line x1="${left}" y1="${yAt(amount)}" x2="${right}" y2="${yAt(amount)}" stroke="rgba(140,170,230,.12)" /><text x="${left - 9}" y="${yAt(amount) + 4}" text-anchor="end" fill="#8299bf">${formatChartAmount(amount).replace('¥', '')}</text>`).join('');
+  const tickCount = width < 470 ? 2 : 3;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, index) => Math.round(index / tickCount * 90))
+    .map((day) => `<text class="axis-date" x="${xAt(day)}" y="${height - 28}" text-anchor="${day === 0 ? 'start' : day === 90 ? 'end' : 'middle'}">${dateZh(chart.points[day].date)}</text><text class="axis-balance" x="${xAt(day)}" y="${height - 12}" text-anchor="${day === 0 ? 'start' : day === 90 ? 'end' : 'middle'}">${formatChartAmount(chart.points[day].balanceCents / 100)}</text>`).join('');
   const selectedX = xAt(node.day);
   const selectedY = yAt(node.balanceCents / 100);
   const todayY = yAt(chart.points[0].balanceCents / 100);
@@ -377,6 +373,7 @@ function renderFuture() {
   const end = points.at(-1);
   const selectedDay = futureSelectedDay == null ? null : Math.min(futureSelectedDay, futureHorizon);
   const selectedPoint = selectedDay == null ? null : points[selectedDay];
+  const selectedBalance = selectedPoint ? futureChartBalance(selectedPoint, selectedDay) * 100 : null;
   const scenarioPoints = (scenarioResult?.scenario?.points || []).slice(0, futureHorizon + 1);
   const meaningful = points.filter((item) => item.drivers.some((driver) => driver.sourceType !== 'daily_floor')).slice(0, 8);
   const midpoint = points[Math.floor(futureHorizon / 2)];
@@ -397,8 +394,8 @@ function renderFuture() {
   root.innerHTML = `<main class="live-stack live-space-future reference-secondary reference-future">
     <section class="title-row"><h1 class="page-title">你的未来轨迹</h1><span class="page-sub">按已确认信息估算</span><button class="now-update-action" type="button" data-action="open-scenario">试算变化</button></section>
     <section class="kpis" aria-label="未来摘要"><article class="kpi glass">${nowMetricIcon('balance')}<div><span class="kpi-label">当前余额</span><strong class="kpi-value">${centsMoney(points[0]?.openingBalanceCents)}</strong><span class="kpi-sub">本人已确认</span></div></article><article class="kpi glass">${nowMetricIcon('duration')}<div><span class="kpi-label">${futureHorizon} 天后预计余额</span><strong class="kpi-value">${centsMoney(end?.closingBalanceCents)}</strong><span class="kpi-sub">按当前条件</span></div></article><article class="kpi glass">${nowMetricIcon('boundary')}<div><span class="kpi-label">保留金额边界</span><strong class="kpi-value">${view.reserveTouch.date ? dateZh(view.reserveTouch.date) : '期间未触及'}</strong><span class="kpi-sub">保留金额 ${centsMoney(view.reserveCents)}</span></div></article></section>
-    <section class="fut-mid"><article class="chart-card glass" data-testid="future-canvas"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2><span class="chart-sub">当前条件下的余额轨迹</span><div class="chart-tabs">${[30, 60, 90].map((days) => `<button class="tab${days === futureHorizon ? ' active' : ''}" type="button" data-action="horizon" data-value="${days}" aria-pressed="${days === futureHorizon}">${days} 天</button>`).join('')}</div></div><div class="chart-body interactive-chart" data-testid="future-chart-body" role="slider" tabindex="0" aria-label="未来预计余额，点击曲线或按方向键查看日期" aria-valuemin="0" aria-valuemax="${futureHorizon}" aria-valuenow="${selectedDay ?? 0}" aria-valuetext="${selectedPoint ? `第 ${selectedDay} 天，${dateFullZh(selectedPoint.date)}，预计余额 ${centsMoney(selectedPoint.closingBalanceCents)}` : '尚未选择日期'}"><svg class="chart" aria-hidden="true"></svg><div class="quote q-fut" aria-hidden="true">每条路，<br>都有它自己的风景。</div></div><div class="chart-legend"><span class="lg"><i class="line"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额</span>${scenarioPoints.length ? '<span class="lg"><i class="green2"></i>试算结果</span>' : ''}</div></article>
-    <aside class="tl-card glass" data-testid="future-inspector"><h2 class="tl-title">关键节点</h2>${selectedPoint ? `<div class="future-selected-point" data-testid="future-selected-point"><span>第 ${selectedDay} 天 · ${dateFullZh(selectedPoint.date)}</span><strong>预计余额 ${centsMoney(selectedPoint.closingBalanceCents)}</strong></div>` : ''}<span class="tl-sub">按时间顺序</span><div class="tl-list">${timeline.map((item) => `<div class="tl-item ${item.tone}"><div class="tl-date">${dateZh(item.date)}<span class="tl-tag">${item.kind}</span></div><div class="tl-desc">${escapeHtml(item.label)} · ${escapeHtml(item.amount)}</div></div>`).join('')}</div>${scenarioMarkup}${savedScenarioMarkup}</aside></section>
+    <section class="fut-mid"><article class="chart-card glass" data-testid="future-canvas"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2><span class="chart-sub">当前条件下的余额轨迹</span><div class="chart-tabs">${[30, 60, 90].map((days) => `<button class="tab${days === futureHorizon ? ' active' : ''}" type="button" data-action="horizon" data-value="${days}" aria-pressed="${days === futureHorizon}">${days} 天</button>`).join('')}</div></div><div class="chart-body interactive-chart" data-testid="future-chart-body" role="slider" tabindex="0" aria-label="未来预计余额，点击曲线或按方向键查看日期" aria-valuemin="0" aria-valuemax="${futureHorizon}" aria-valuenow="${selectedDay ?? 0}" aria-valuetext="${selectedPoint ? `第 ${selectedDay} 天，${dateFullZh(selectedPoint.date)}，${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}` : '尚未选择日期'}"><svg class="chart" aria-hidden="true"></svg><div class="quote q-fut" aria-hidden="true">每条路，<br>都有它自己的风景。</div></div><div class="chart-legend"><span class="lg"><i class="line"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额</span>${scenarioPoints.length ? '<span class="lg"><i class="green2"></i>试算结果</span>' : ''}</div></article>
+    <aside class="tl-card glass" data-testid="future-inspector"><h2 class="tl-title">关键节点</h2>${selectedPoint ? `<div class="future-selected-point" data-testid="future-selected-point"><span>第 ${selectedDay} 天 · ${dateFullZh(selectedPoint.date)}</span><strong>${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}</strong></div>` : ''}<span class="tl-sub">按时间顺序</span><div class="tl-list">${timeline.map((item) => `<div class="tl-item ${item.tone}"><div class="tl-date">${dateZh(item.date)}<span class="tl-tag">${item.kind}</span></div><div class="tl-desc">${escapeHtml(item.label)} · ${escapeHtml(item.amount)}</div></div>`).join('')}</div>${scenarioMarkup}${savedScenarioMarkup}</aside></section>
     <section class="fut-cards" aria-label="不同时间范围的预计结果">${horizonCards}</section>
   </main>`;
   bindActions(root);

@@ -55,6 +55,15 @@ test('selecting a chart date changes its visible detail without changing confirm
     await futureChart.focus();
     await page.keyboard.press('End');
     assert.match(await page.getByTestId('future-selected-point').innerText(), /第 90 天/);
+    await page.setViewportSize({ width: 320, height: 700 });
+    const axis = futureChart.locator('svg .axis-date');
+    assert.equal(await axis.count(), 3, 'narrow screens should keep a small set of readable date anchors');
+    const boxes = await axis.evaluateAll((nodes) => nodes.map((node) => {
+      const rect = node.getBoundingClientRect();
+      return { left: rect.left, right: rect.right };
+    }));
+    assert.ok(boxes.every((box, index) => index === 0 || box.left >= boxes[index - 1].right), 'date anchors must not overlap');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
     assert.deepEqual(errors, []);
     await context.close();
   } finally {
