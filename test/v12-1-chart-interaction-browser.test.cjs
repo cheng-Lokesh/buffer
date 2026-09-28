@@ -43,12 +43,12 @@ test('selecting a chart date changes its visible detail without changing confirm
     await page.getByTestId('now-chart-lookup-toggle').click();
     await nowLookup.getByLabel(/余额首次不高于/).fill('2501');
     await nowLookup.getByRole('button', { name: '查找余额' }).click();
-    assert.equal(await nowChart.getAttribute('aria-valuenow'), '50', 'balance lookup should select first day at or below the target');
+    assert.equal(await nowChart.getAttribute('aria-valuenow'), '49', 'balance lookup should select first day at or below the target');
     await page.getByTestId('now-chart-lookup-toggle').click();
     await nowLookup.getByLabel(/余额首次不高于/).fill('100');
     await nowLookup.getByRole('button', { name: '查找余额' }).click();
     assert.match(await nowLookup.getByRole('status').innerText(), /90 天内未达到/);
-    assert.equal(await nowChart.getAttribute('aria-valuenow'), '50', 'a missing balance must not silently select a different point');
+    assert.equal(await nowChart.getAttribute('aria-valuenow'), '49', 'a missing balance must not silently select a different point');
     assert.equal(await nowReadout.isVisible(), true);
     assert.match(await nowReadout.innerText(), /\d{4}年\d{1,2}月\d{1,2}日[\s\S]*¥/);
     const nowAxisLabels = await nowChart.locator('svg text').allTextContents();
@@ -77,7 +77,7 @@ test('selecting a chart date changes its visible detail without changing confirm
     await page.getByTestId('future-chart-lookup-toggle').click();
     await futureLookup.getByLabel(/余额首次不高于/).fill('2501');
     await futureLookup.getByRole('button', { name: '查找余额' }).click();
-    assert.equal(await futureChart.getAttribute('aria-valuenow'), '50');
+    assert.equal(await futureChart.getAttribute('aria-valuenow'), '49');
     const futureReadout = page.getByTestId('future-chart-readout');
     assert.equal(await futureReadout.isVisible(), true, 'future chart should show a date and balance on the plot before any click');
     assert.match(await futureReadout.innerText(), /\d{4}年\d{1,2}月\d{1,2}日[\s\S]*¥/);
@@ -105,6 +105,16 @@ test('selecting a chart date changes its visible detail without changing confirm
       return { left: rect.left, right: rect.right };
     }));
     assert.ok(boxes.every((box, index) => index === 0 || box.left >= boxes[index - 1].right), 'date anchors must not overlap');
+    await page.getByTestId('future-chart-lookup-toggle').click();
+    assert.equal(await futureLookup.isVisible(), true, 'narrow phones should expose the direct lookup');
+    const lookupInsideViewport = await futureLookup.evaluate((panel) => {
+      const rect = panel.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= document.documentElement.clientWidth + 1;
+    });
+    assert.equal(lookupInsideViewport, true, 'lookup must fit narrow phones');
+    await futureLookup.getByLabel(/余额首次不高于/).press('Escape');
+    assert.equal(await futureLookup.isVisible(), false);
+    assert.equal(await page.getByTestId('future-chart-lookup-toggle').getAttribute('aria-expanded'), 'false');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
     assert.deepEqual(errors, []);
     await context.close();

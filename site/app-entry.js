@@ -140,6 +140,51 @@ function chartKeyboardDay(event, currentDay, lastDay) {
   return null;
 }
 
+function chartLookupMarkup(space, points, selectedDay) {
+  if (!points?.length) return '';
+  return `<div class="chart-lookup" id="${space}-chart-lookup" data-testid="${space}-chart-lookup" hidden>
+    <label>日期<input data-role="lookup-date" type="date" min="${points[0].date}" max="${points.at(-1).date}" value="${points[selectedDay].date}"></label>
+    <form data-role="lookup-balance"><label>余额首次不高于（元）<input data-role="lookup-amount" type="number" inputmode="decimal" step="0.01" placeholder="例如 2500"></label><button type="submit">查找余额</button></form>
+    <p role="status" aria-live="polite"></p>
+  </div>`;
+}
+
+function bindChartLookup(root, space, points, balanceCentsAt, selectDay) {
+  const toggle = root.querySelector(`[data-testid="${space}-chart-lookup-toggle"]`);
+  const panel = root.querySelector(`[data-testid="${space}-chart-lookup"]`);
+  if (!toggle || !panel) return;
+  const status = panel.querySelector('[role="status"]');
+  const close = () => { panel.hidden = true; toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); };
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    toggle.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) panel.querySelector('[data-role="lookup-date"]').focus();
+  });
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); }
+  });
+  panel.querySelector('[data-role="lookup-date"]').addEventListener('change', (event) => {
+    const day = points.findIndex((point) => point.date === event.target.value);
+    if (day >= 0) selectDay(day);
+    else status.textContent = '请选择当前图表范围内的日期';
+  });
+  panel.querySelector('[data-role="lookup-balance"]').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const raw = panel.querySelector('[data-role="lookup-amount"]').value.trim();
+    if (!/^-?\d+(?:\.\d{1,2})?$/.test(raw) || !Number.isSafeInteger(Math.round(Number(raw) * 100))) {
+      status.textContent = '请输入金额，最多保留两位小数';
+      return;
+    }
+    const targetCents = Math.round(Number(raw) * 100);
+    const day = points.findIndex((point, index) => balanceCentsAt(point, index) <= targetCents);
+    if (day < 0) {
+      status.textContent = `${points.length - 1} 天内未达到 ${centsMoney(targetCents)}`;
+      return;
+    }
+    selectDay(day);
+  });
+}
+
 function dateFullZh(value) {
   if (!value) return '日期待确认';
   const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00+08:00`);
@@ -336,12 +381,17 @@ function renderNow() {
         <article class="kpi glass">${nowMetricIcon('reserve')}<div><span class="kpi-label">保留金额</span><strong class="kpi-value">${centsMoney(summary.reserveCents)}</strong><span class="kpi-sub">本人设定</span></div></article>
       </section>
       <section class="middle" data-testid="now-cash-course">
-        <section class="chart-card glass" data-testid="now-projection-milestones"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2><span class="chart-sub">现金轨迹与关键节点</span><div class="chart-tabs">${billRows.length ? `<button class="tab${nowBillView ? '' : ' active'}" type="button" data-action="show-forecast" aria-pressed="${!nowBillView}">现金预估</button><button class="tab${nowBillView ? ' active' : ''}" type="button" data-action="show-bill-observation" aria-pressed="${nowBillView}">账单观察</button>` : [30, 60, 90].map((day) => `<button class="tab${day === 90 ? ' active' : ''}" type="button" data-action="open-future" data-value="${day}" aria-label="查看未来 ${day} 天详情">${day} 天</button>`).join('')}<span class="cur-select">人民币 (¥)</span></div></div>${forecastContent}${nowBillView && billRows.length ? '' : `<div class="chart-legend"><span class="lg"><i class="dot"></i>当前确认</span><span class="lg"><i class="dash"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额（${centsMoney(summary.reserveCents)}）</span><span class="lg"><i class="dot"></i>关键节点</span></div>`}</section>
+        <section class="chart-card glass" data-testid="now-projection-milestones"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2>${chart && (!nowBillView || !billRows.length) ? '<button class="chart-lookup-toggle" type="button" data-testid="now-chart-lookup-toggle" aria-controls="now-chart-lookup" aria-expanded="false">找日期或余额</button>' : ''}<div class="chart-tabs">${billRows.length ? `<button class="tab${nowBillView ? '' : ' active'}" type="button" data-action="show-forecast" aria-pressed="${!nowBillView}">现金预估</button><button class="tab${nowBillView ? ' active' : ''}" type="button" data-action="show-bill-observation" aria-pressed="${nowBillView}">账单观察</button>` : [30, 60, 90].map((day) => `<button class="tab${day === 90 ? ' active' : ''}" type="button" data-action="open-future" data-value="${day}" aria-label="查看未来 ${day} 天详情">${day} 天</button>`).join('')}<span class="cur-select">人民币 (¥)</span></div></div>${chart && (!nowBillView || !billRows.length) ? chartLookupMarkup('now', chart.points, nodeDay) : ''}${forecastContent}${nowBillView && billRows.length ? '' : `<div class="chart-legend"><span class="lg"><i class="dot"></i>当前确认</span><span class="lg"><i class="dash"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额（${centsMoney(summary.reserveCents)}）</span><span class="lg"><i class="dot"></i>关键节点</span></div>`}</section>
         <aside class="node-card glass" data-testid="now-cash-inspector"><div class="node-head"><h2 class="node-title">节点详情</h2><button class="node-more" type="button" data-action="open-future" data-value="90">查看未来详情 <span aria-hidden="true">›</span></button></div><div class="node-date-row"><strong class="node-date">${node ? dateFullZh(node.date) : '待确认'}</strong><span class="node-day">第 ${nodeDay} 天</span></div><span class="node-desc">${node?.isTouch ? '预计触及你设定的保留金额' : '未来的一个观察时点'}</span><span class="node-bal-label">预计余额</span><div class="node-bal-row"><strong class="node-bal">${node ? centsMoney(node.balanceCents) : '待确认'}</strong><span class="node-badge">${node?.isTouch ? '触及保留金额' : '按当前情况'}</span></div><div class="factor-title">主要影响因素（较今天）</div>${inspectorFactors}<div class="node-note"><span aria-hidden="true">✦</span><p>按本人已确认的信息估算；预计变化不会修改当前记录。</p></div></aside>
       </section>
       ${dueMarkup}${checkpointMarkup}
     </main>`;
   bindActions(root);
+  if (chart && (!nowBillView || !billRows.length)) bindChartLookup(root, 'now', chart.points, (point) => point.balanceCents, (day) => {
+    nowSelectedDay = day;
+    renderNow();
+    root.querySelector('[data-testid="now-forecast-chart"]')?.focus();
+  });
   if (chart && node && (!nowBillView || !billRows.length)) {
     const chartBody = root.querySelector('[data-testid="now-forecast-chart"]');
     if (chartBody) {
@@ -403,11 +453,16 @@ function renderFuture() {
   root.innerHTML = `<main class="live-stack live-space-future reference-secondary reference-future">
     <section class="title-row"><h1 class="page-title">你的未来轨迹</h1><span class="page-sub">按已确认信息估算</span><button class="now-update-action" type="button" data-action="open-scenario">试算变化</button></section>
     <section class="kpis" aria-label="未来摘要"><article class="kpi glass">${nowMetricIcon('balance')}<div><span class="kpi-label">当前余额</span><strong class="kpi-value">${centsMoney(points[0]?.openingBalanceCents)}</strong><span class="kpi-sub">本人已确认</span></div></article><article class="kpi glass">${nowMetricIcon('duration')}<div><span class="kpi-label">${futureHorizon} 天后预计余额</span><strong class="kpi-value">${centsMoney(end?.closingBalanceCents)}</strong><span class="kpi-sub">按当前条件</span></div></article><article class="kpi glass">${nowMetricIcon('boundary')}<div><span class="kpi-label">保留金额边界</span><strong class="kpi-value">${view.reserveTouch.date ? dateZh(view.reserveTouch.date) : '期间未触及'}</strong><span class="kpi-sub">保留金额 ${centsMoney(view.reserveCents)}</span></div></article></section>
-    <section class="fut-mid"><article class="chart-card glass" data-testid="future-canvas"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2><span class="chart-sub">当前条件下的余额轨迹</span><div class="chart-tabs">${[30, 60, 90].map((days) => `<button class="tab${days === futureHorizon ? ' active' : ''}" type="button" data-action="horizon" data-value="${days}" aria-pressed="${days === futureHorizon}">${days} 天</button>`).join('')}</div></div><div class="chart-body interactive-chart" data-testid="future-chart-body" role="slider" tabindex="0" aria-label="未来预计余额，点击曲线或按方向键查看日期" aria-valuemin="0" aria-valuemax="${futureHorizon}" aria-valuenow="${selectedDay}" aria-valuetext="第 ${selectedDay} 天，${dateFullZh(selectedPoint.date)}，${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}"><svg class="chart" aria-hidden="true"></svg><div class="quote q-fut" aria-hidden="true">每条路，<br>都有它自己的风景。</div><div class="tip chart-point-readout" data-testid="future-chart-readout"><div class="t1">${dateFullZh(selectedPoint.date)}</div><div class="t2">${selectedDay === 0 ? '当前余额' : '预计余额'}</div><div class="t3">${centsMoney(selectedBalance)}</div></div></div><div class="chart-legend"><span class="lg"><i class="line"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额</span>${scenarioPoints.length ? '<span class="lg"><i class="green2"></i>试算结果</span>' : ''}</div></article>
+    <section class="fut-mid"><article class="chart-card glass" data-testid="future-canvas"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2><button class="chart-lookup-toggle" type="button" data-testid="future-chart-lookup-toggle" aria-controls="future-chart-lookup" aria-expanded="false">找日期或余额</button><div class="chart-tabs">${[30, 60, 90].map((days) => `<button class="tab${days === futureHorizon ? ' active' : ''}" type="button" data-action="horizon" data-value="${days}" aria-pressed="${days === futureHorizon}">${days} 天</button>`).join('')}</div></div>${chartLookupMarkup('future', points, selectedDay)}<div class="chart-body interactive-chart" data-testid="future-chart-body" role="slider" tabindex="0" aria-label="未来预计余额，点击曲线或按方向键查看日期" aria-valuemin="0" aria-valuemax="${futureHorizon}" aria-valuenow="${selectedDay}" aria-valuetext="第 ${selectedDay} 天，${dateFullZh(selectedPoint.date)}，${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}"><svg class="chart" aria-hidden="true"></svg><div class="quote q-fut" aria-hidden="true">每条路，<br>都有它自己的风景。</div><div class="tip chart-point-readout" data-testid="future-chart-readout"><div class="t1">${dateFullZh(selectedPoint.date)}</div><div class="t2">${selectedDay === 0 ? '当前余额' : '预计余额'}</div><div class="t3">${centsMoney(selectedBalance)}</div></div></div><div class="chart-legend"><span class="lg"><i class="line"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额</span>${scenarioPoints.length ? '<span class="lg"><i class="green2"></i>试算结果</span>' : ''}</div></article>
     <aside class="tl-card glass" data-testid="future-inspector"><h2 class="tl-title">关键节点</h2>${selectedPoint ? `<div class="future-selected-point" data-testid="future-selected-point"><span>第 ${selectedDay} 天 · ${dateFullZh(selectedPoint.date)}</span><strong>${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}</strong></div>` : ''}<span class="tl-sub">按时间顺序</span><div class="tl-list">${timeline.map((item) => `<div class="tl-item ${item.tone}"><div class="tl-date">${dateZh(item.date)}<span class="tl-tag">${item.kind}</span></div><div class="tl-desc">${escapeHtml(item.label)} · ${escapeHtml(item.amount)}</div></div>`).join('')}</div>${scenarioMarkup}${savedScenarioMarkup}</aside></section>
     <section class="fut-cards" aria-label="不同时间范围的预计结果">${horizonCards}</section>
   </main>`;
   bindActions(root);
+  bindChartLookup(root, 'future', points, (point, index) => index === 0 ? point.openingBalanceCents : point.closingBalanceCents, (day) => {
+    futureSelectedDay = day;
+    renderFuture();
+    root.querySelector('[data-testid="future-chart-body"]')?.focus();
+  });
   const chartBody = root.querySelector('[data-testid="future-chart-body"]');
   if (chartBody) {
     const repaint = () => paintFutureReferenceChart(root, points, view.reserveCents, scenarioPoints, view.reserveTouch.date, selectedDay);
