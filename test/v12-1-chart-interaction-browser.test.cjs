@@ -32,6 +32,23 @@ test('selecting a chart date changes its visible detail without changing confirm
 
     const nowChart = page.getByTestId('now-forecast-chart');
     const nowReadout = nowChart.locator('.tip');
+    await page.getByTestId('now-chart-lookup-toggle').click();
+    const nowLookup = page.getByTestId('now-chart-lookup');
+    const firstDate = await nowLookup.getByLabel('日期').getAttribute('min');
+    const requestedDate = new Date(`${firstDate}T12:00:00Z`);
+    requestedDate.setUTCDate(requestedDate.getUTCDate() + 17);
+    await nowLookup.getByLabel('日期').fill(requestedDate.toISOString().slice(0, 10));
+    assert.equal(await nowChart.getAttribute('aria-valuenow'), '17', 'entering a date should select that exact forecast day');
+    assert.match(await page.getByTestId('now-cash-inspector').innerText(), /第 17 天/);
+    await page.getByTestId('now-chart-lookup-toggle').click();
+    await nowLookup.getByLabel(/余额首次不高于/).fill('2501');
+    await nowLookup.getByRole('button', { name: '查找余额' }).click();
+    assert.equal(await nowChart.getAttribute('aria-valuenow'), '50', 'balance lookup should select first day at or below the target');
+    await page.getByTestId('now-chart-lookup-toggle').click();
+    await nowLookup.getByLabel(/余额首次不高于/).fill('100');
+    await nowLookup.getByRole('button', { name: '查找余额' }).click();
+    assert.match(await nowLookup.getByRole('status').innerText(), /90 天内未达到/);
+    assert.equal(await nowChart.getAttribute('aria-valuenow'), '50', 'a missing balance must not silently select a different point');
     assert.equal(await nowReadout.isVisible(), true);
     assert.match(await nowReadout.innerText(), /\d{4}年\d{1,2}月\d{1,2}日[\s\S]*¥/);
     const nowAxisLabels = await nowChart.locator('svg text').allTextContents();
@@ -50,6 +67,17 @@ test('selecting a chart date changes its visible detail without changing confirm
 
     await page.getByRole('button', { name: '未来', exact: true }).click();
     const futureChart = page.getByTestId('future-chart-body');
+    await page.getByTestId('future-chart-lookup-toggle').click();
+    const futureLookup = page.getByTestId('future-chart-lookup');
+    const futureFirstDate = await futureLookup.getByLabel('日期').getAttribute('min');
+    const futureRequestedDate = new Date(`${futureFirstDate}T12:00:00Z`);
+    futureRequestedDate.setUTCDate(futureRequestedDate.getUTCDate() + 23);
+    await futureLookup.getByLabel('日期').fill(futureRequestedDate.toISOString().slice(0, 10));
+    assert.equal(await futureChart.getAttribute('aria-valuenow'), '23');
+    await page.getByTestId('future-chart-lookup-toggle').click();
+    await futureLookup.getByLabel(/余额首次不高于/).fill('2501');
+    await futureLookup.getByRole('button', { name: '查找余额' }).click();
+    assert.equal(await futureChart.getAttribute('aria-valuenow'), '50');
     const futureReadout = page.getByTestId('future-chart-readout');
     assert.equal(await futureReadout.isVisible(), true, 'future chart should show a date and balance on the plot before any click');
     assert.match(await futureReadout.innerText(), /\d{4}年\d{1,2}月\d{1,2}日[\s\S]*¥/);
