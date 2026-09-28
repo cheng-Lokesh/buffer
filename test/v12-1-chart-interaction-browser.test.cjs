@@ -31,6 +31,10 @@ test('selecting a chart date changes its visible detail without changing confirm
     await baseline.getByRole('button', { name: '确认保存' }).click();
 
     const nowChart = page.getByTestId('now-forecast-chart');
+    const nowAxisLabels = await nowChart.locator('svg text').allTextContents();
+    assert.ok(nowAxisLabels.some((label) => /\d{1,2}月\d{1,2}日/.test(label)), 'timeline must display calendar dates');
+    assert.ok(nowAxisLabels.some((label) => label.includes('¥4,000')), 'timeline must pair a date with its balance');
+    assert.ok(!nowAxisLabels.some((label) => /^\d+ 天$/.test(label)), 'timeline must not make users calculate dates from day counts');
     const initialDetail = await page.getByTestId('now-cash-inspector').innerText();
     await nowChart.click({ position: { x: 70, y: 120 } });
     const selectedDetail = await page.getByTestId('now-cash-inspector').innerText();
@@ -43,6 +47,9 @@ test('selecting a chart date changes its visible detail without changing confirm
 
     await page.getByRole('button', { name: '未来', exact: true }).click();
     const futureChart = page.getByTestId('future-chart-body');
+    const futureAxisLabels = await futureChart.locator('svg text').allTextContents();
+    assert.ok(futureAxisLabels.some((label) => /\d{1,2}月\d{1,2}日/.test(label)));
+    assert.ok(futureAxisLabels.some((label) => label.includes('¥4,000')));
     await futureChart.click({ position: { x: 80, y: 120 } });
     assert.match(await page.getByTestId('future-selected-point').innerText(), /预计余额/);
     await futureChart.focus();
