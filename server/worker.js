@@ -10,7 +10,13 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/api/reality/parse') return handleRealityParserRequest(request, env);
+    if (url.pathname === '/api/reality/parse') {
+      if (env.REALITY_PARSER_RATE_LIMITER?.limit) {
+        const { success } = await env.REALITY_PARSER_RATE_LIMITER.limit({ key: 'single-user:reality-parser' });
+        if (!success) return json({ error: 'rate_limited' }, 429);
+      }
+      return handleRealityParserRequest(request, env);
+    }
     return json({ error: 'not_found' }, 404);
   }
 };

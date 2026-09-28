@@ -3,13 +3,28 @@
 检查：视口溢出 / 文本裁切(scrollWidth>clientWidth) / 容器内容裁切 / 过小字号 / 低对比度 / 交互目标过小"""
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 
 D = os.path.dirname(os.path.abspath(__file__))
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = "8952"
 tmp = os.path.join(os.environ.get("TEMP", "."), "wb_audit")
 os.makedirs(tmp, exist_ok=True)
+PLAYWRIGHT_DOM_JS = r"""
+import { chromium } from 'playwright';
+const context = await chromium.launchPersistentContext(process.env.BUFFER_EDGE_PROFILE, {
+  channel: 'msedge', headless: true, viewport: { width: Number(process.env.BUFFER_W), height: Number(process.env.BUFFER_H) }
+});
+try {
+  const page = context.pages()[0] || await context.newPage();
+  await page.goto(process.env.BUFFER_URL, { waitUntil: 'networkidle' });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForSelector('#AUDIT_OUT', { timeout: 10000 });
+  process.stdout.write(await page.content());
+} finally { await context.close(); }
+"""
 
 AUDIT_JS = r"""
 <script>
@@ -29,7 +44,18 @@ window.addEventListener('load', () => {
       if (r.width === 0 && r.height === 0) return;
       const cls = (el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className || '').toString().slice(0,40);
       const tag = el.tagName.toLowerCase() + (cls ? '.' + cls.split(' ')[0] : '');
-      if (r.right > VW + 1 || r.bottom > VH + 1 || r.left < -1 || r.top < -1)
+      const intentionallyClippedMedia = el.tagName === 'VIDEO' && el.closest('.side-card');
+      let ancestor = el.parentElement, inScrollableRegion = false;
+      while (ancestor) {
+        const ac = getComputedStyle(ancestor);
+        if ((ac.overflowY === 'auto' || ac.overflowY === 'scroll') && ancestor.scrollHeight > ancestor.clientHeight) {
+          inScrollableRegion = true; break;
+        }
+        ancestor = ancestor.parentElement;
+      }
+      const horizontalOut = r.right > VW + 1 || r.left < -1;
+      const verticalOut = r.bottom > VH + 1 || r.top < -1;
+      if (!intentionallyClippedMedia && (horizontalOut || (verticalOut && !inScrollableRegion)))
         out.push({t:'视口溢出', el:tag, rect:[r.left|0,r.top|0,r.right|0,r.bottom|0]});
       if (cs.whiteSpace === 'nowrap' && el.scrollWidth > el.clientWidth + 1 && el.children.length === 0)
         out.push({t:'文本裁切', el:tag, text:(el.textContent||'').slice(0,18), sw:el.scrollWidth, cw:el.clientWidth});
@@ -102,7 +128,7 @@ window.addEventListener('load', () => {
 
 html = open(os.path.join(D, "index.src.html"), encoding="utf-8").read()
 pages = ["now", "future", "cond", "rec"]
-SIZES = [("1440,765", "VH668"), ("1440,800", "VH703"), ("1440,862", "VH765")]
+SIZES = [("1440,765", "VH668"), ("1440,800", "VH703"), ("1440,862", "VH765"), ("390,844", "PHONE390")]
 for wh, tag0 in SIZES:
     print("######## 窗口 %s（%s） ########" % (wh, tag0))
     for pg in pages:
@@ -110,19 +136,34 @@ for wh, tag0 in SIZES:
         h = html.replace("</head>", force + "</head>", 1).replace("</body>", AUDIT_JS + "</body>", 1)
         fn = "_a_%s.html" % pg
         open(os.path.join(D, fn), "w", encoding="utf-8").write(h)
-        r = subprocess.run([EDGE, "--headless=new", "--disable-gpu", "--window-size=" + wh,
-                            "--virtual-time-budget=9000", "--user-data-dir=" + os.path.join(tmp, "ud%s_%s" % (tag0, pg)),
-                            "--dump-dom", "http://127.0.0.1:%s/%s" % (PORT, fn)], capture_output=True, text=True, timeout=60)
+        profile = tempfile.mkdtemp(prefix="edge_%s_%s_" % (tag0, pg), dir=tmp)
+        try:
+            width, height = wh.split(",", 1)
+            env = os.environ.copy()
+            env.update({
+                "BUFFER_EDGE_PROFILE": profile,
+                "BUFFER_W": width,
+                "BUFFER_H": height,
+                "BUFFER_URL": "http://127.0.0.1:%s/%s" % (PORT, fn),
+            })
+            r = subprocess.run(["node", "--input-type=module", "-e", PLAYWRIGHT_DOM_JS],
+                               cwd=os.path.dirname(D), env=env, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=60)
+        finally:
+            shutil.rmtree(profile, ignore_errors=True)
         m = re.search(r'<pre id="AUDIT_OUT">(.*?)</pre>', r.stdout, re.S)
         print("==== %s ====" % pg)
         if not m:
-            print("  (无报告，dump 失败)")
+            os.remove(os.path.join(D, fn))
+            raise RuntimeError("Edge audit produced no report: exit=%s stderr=%s" % (r.returncode, r.stderr[-240:]))
         else:
             import json
             issues = json.loads(m.group(1))
             seen = set()
             n = 0
             for it in issues:
+                if it["t"] == "_诊断":
+                    continue
                 if it["t"] == "触控过小":
                     continue
                 if it["t"] == "纵向裁切" and "side-card" in it["el"]:
@@ -134,6 +175,6 @@ for wh, tag0 in SIZES:
                 n += 1
                 print("  [%s] %s %s" % (it["t"], it["el"], {k2: v for k2, v in it.items() if k2 not in ("t", "el")}))
             if n == 0:
-                print("  无问题 ✔")
+                print("  PASS: no layout issues")
         os.remove(os.path.join(D, fn))
 print("done")

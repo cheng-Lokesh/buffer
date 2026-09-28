@@ -33,6 +33,8 @@ Buffer 是供唯一真实用户在收入不稳定时期使用的**个人现实�
 
 复杂解析只发送最小必要上下文。Provider key、原始 prompt、provider response 和临时候选不得进入客户端包、HTML、localStorage、备份、截图、日志或 Git。产品必须诚实披露：复杂自然语言解析可能由中国境内的外部模型服务处理。
 
+当前代码支持唯一真实用户的受保护私有试用：Vite 产品与解析函数同源发布，整个 EdgeOne Makers 站点必须开启整站密码保护，只允许本人访问。部署不会把 Reality 变成云数据，浏览器之间仍需手动备份与恢复。操作步骤见 [`docs/v12-1/10-private-pilot-deployment.md`](docs/v12-1/10-private-pilot-deployment.md)。
+
 ## 非目标与停止规则
 
 V12.1 已完成。没有用户明确的新产品决策时，**禁止**开始或暗中扩展为：OCR、截图/账单识别、银行或支付同步、AI Chat、AI Advisor、AI 报告、风险评分、Tool Calling、长期 AI Memory、自动预测、自动执行、Final Hardening、V13、新一级空间或新产品模块。

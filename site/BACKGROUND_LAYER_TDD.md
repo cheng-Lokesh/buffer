@@ -8,8 +8,8 @@ The background uses the user-supplied night panorama as the landscape anchor. A 
 
 1. `night_panorama_astrophotography_v2.png` is the exact 2048 x 336 production crop.
 2. The bitmap contains the fine star density, Milky Way structure, and dust lanes, avoiding synthetic canvas-generated galaxy effects.
-3. `starfield-background.js` animates nine fixed anchor stars using 5.8 to 10.2 second breathing periods and soft radial halos without cross-shaped flares.
-4. Single meteors use randomized 25 to 60 second intervals, positions, lengths, speeds, thicknesses, and restrained colors.
+3. `starfield-background.js` animates 18 fixed photographic anchor stars through independent randomized twinkle envelopes, layered spectral halos, crisp cores, and brief event-driven diffraction rays.
+4. Single meteors use an initial 6.5 to 11 second appearance and randomized 11 to 26 second intervals thereafter. Each event selects one of five restrained two-color spectra with a soft trail and luminous head.
 5. Constellation drawings and procedural star populations were removed.
 
 ## TDD evidence
@@ -72,6 +72,17 @@ The background uses the user-supplied night panorama as the landscape anchor. A 
 - GREEN command: `python -m unittest -v test_background_layers.py; node --check starfield-background.js`
 - GREEN result: 16 tests passed and JavaScript syntax validation passed.
 - Browser evidence: the live renderer reported 18 independent anchors, 60 stochastic twinkle events during the observed browser interval, seven separately scheduled bloom events, no forced meteor, and reduced motion disabled. Each twinkle now randomizes its wait, attack, hold, decay, intensity, and halo expansion.
+
+### Spectral-star and colorful-meteor refinement
+
+- User journey: keep the accepted star-twinkle speed while making individual stars more beautiful, and let colorful meteors appear occasionally at a lower frequency than starlight events.
+- RED command: `python site/test_background_layers.py`
+- RED result: 15 tests passed and two new contracts failed because stars still used one circular halo and meteors still used a narrow three-color list with 25 to 60 second scheduling.
+- RED checkpoint: `c0fa1a6 test: add RED contract for spectral stars and meteors`.
+- GREEN command: `python site/test_background_layers.py`; syntax command: `node --check site/starfield-background.js`.
+- GREEN result: 17 tests passed and JavaScript syntax validation passed.
+- Browser evidence: the live renderer reported 18 anchors, five meteor palettes, no console warnings or errors, and preserved the original 700 to 6500 ms stochastic twinkle cadence. A real rose-spectrum meteor was captured with a white head, magenta-violet core trail, and soft colored bloom. Reduced motion continues to disable the Canvas animation.
+- Coverage boundary: this standalone Canvas script has no line-coverage harness. The focused contract suite covers cadence constants, renderer layers, palette systems, diagnostics, reduced motion, asset integrity, and forbidden regressions; real-browser observation covers the rendered motion. User visual acceptance remains separate.
 
 ## Accessibility and resilience
 

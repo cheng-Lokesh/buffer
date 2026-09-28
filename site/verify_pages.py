@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """逐页渲染验证：4 个页面文字/组件是否在界内、内容非空、字体未回退"""
 import os
+import shutil
 import subprocess
+import tempfile
 import time
 
 import numpy as np
@@ -11,6 +13,18 @@ D = os.path.dirname(os.path.abspath(__file__))
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 PORT = "8951"
 W, H = 1440, 765
+PLAYWRIGHT_SCREENSHOT_JS = r"""
+import { chromium } from 'playwright';
+const context = await chromium.launchPersistentContext(process.env.BUFFER_EDGE_PROFILE, {
+  channel: 'msedge', headless: true, viewport: { width: Number(process.env.BUFFER_W), height: Number(process.env.BUFFER_H) }
+});
+try {
+  const page = context.pages()[0] || await context.newPage();
+  await page.goto(process.env.BUFFER_URL, { waitUntil: 'networkidle' });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.screenshot({ path: process.env.BUFFER_PNG });
+} finally { await context.close(); }
+"""
 
 html = open(os.path.join(D, "index.src.html"), encoding="utf-8").read()
 BASE_HIDE = "<style>video{display:none!important}</style>"
@@ -26,18 +40,36 @@ tmp = os.path.join(os.environ.get("TEMP", "."), "wb_pages")
 os.makedirs(tmp, exist_ok=True)
 
 def shot(pagefile, tag, tries=3):
+    last_error = "unknown"
     for i in range(tries):
         png = os.path.join(tmp, "%s_%d.png" % (tag, i))
-        subprocess.run([EDGE, "--headless=new", "--disable-gpu", "--hide-scrollbars",
-                        "--window-size=%d,%d" % (W, H), "--virtual-time-budget=9000",
-                        "--user-data-dir=" + os.path.join(tmp, "ud_%s_%d" % (tag, i)),
-                        "--screenshot=" + png,
-                        "http://127.0.0.1:%s/%s" % (PORT, pagefile)], capture_output=True)
-        a = np.array(Image.open(png).convert("L")).astype(int)
+        if os.path.exists(png):
+            os.remove(png)
+        profile = tempfile.mkdtemp(prefix="edge_%s_" % tag, dir=tmp)
+        try:
+            env = os.environ.copy()
+            env.update({
+                "BUFFER_EDGE_PROFILE": profile,
+                "BUFFER_W": str(W),
+                "BUFFER_H": str(H),
+                "BUFFER_URL": "http://127.0.0.1:%s/%s" % (PORT, pagefile),
+                "BUFFER_PNG": png,
+            })
+            result = subprocess.run(["node", "--input-type=module", "-e", PLAYWRIGHT_SCREENSHOT_JS],
+                                    cwd=os.path.dirname(D), env=env, capture_output=True)
+            if not os.path.isfile(png):
+                last_error = "exit=%s stderr=%s" % (result.returncode, result.stderr.decode(errors="replace")[-240:])
+                time.sleep(1)
+                continue
+            a = np.array(Image.open(png).convert("L")).astype(int)
+        finally:
+            shutil.rmtree(profile, ignore_errors=True)
         if a.mean() < 150:
             return a
         time.sleep(1)
-    return a
+    if 'a' in locals():
+        return a
+    raise RuntimeError("Edge screenshot missing: %s" % last_error)
 
 for pg, sels in PAGES.items():
     # 只显示当前页

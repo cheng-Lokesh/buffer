@@ -4,6 +4,7 @@ import {
 } from '../src/v12-1-reality-parser.js';
 
 const DEFAULT_MODEL = 'deepseek-v4-flash';
+const DEFAULT_TIMEOUT_MS = 12_000;
 const ENDPOINT = 'https://api.deepseek.com/responses';
 const MAX_TEXT_LENGTH = 1000;
 
@@ -129,6 +130,9 @@ export function createDeepSeekRealityParserAdapter(options = {}) {
   const apiKey = String(options.apiKey || '').trim();
   const fetchImpl = options.fetchImpl || fetch;
   const model = String(options.model || DEFAULT_MODEL);
+  const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
+    ? Number(options.timeoutMs)
+    : DEFAULT_TIMEOUT_MS;
   if (!apiKey) throw new Error('provider_key_missing');
   return Object.freeze({
     id: model,
@@ -136,9 +140,19 @@ export function createDeepSeekRealityParserAdapter(options = {}) {
     sendsDataExternally: true,
     async parse(input) {
       const payload = safeContext(input);
-      let lastFailure = 'provider_schema_invalid';
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const response = await fetchImpl(ENDPOINT, {
+      const controller = new AbortController();
+      let timedOut = false;
+      const abortFromCaller = () => controller.abort(options.signal?.reason);
+      if (options.signal?.aborted) abortFromCaller();
+      else options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort(new Error('provider_timeout'));
+      }, timeoutMs);
+      try {
+        let lastFailure = 'provider_schema_invalid';
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const response = await fetchImpl(ENDPOINT, {
           method: 'POST',
           headers: {
             authorization: `Bearer ${apiKey}`,
@@ -158,27 +172,34 @@ export function createDeepSeekRealityParserAdapter(options = {}) {
               }
             }
           }),
-          signal: options.signal
-        });
-        if (!response.ok) throw new Error('provider_request_failed');
-        try {
-          const providerPayload = await response.json();
-          const interpretation = normalizeProviderInterpretation(parseStructuredOutput(extractOutputText(providerPayload)));
-          const validation = validateParserInterpretation(interpretation);
-          if (validation.valid) {
-            if (attempt === 0 && interpretation.status === 'unsupported' && shouldRetryUnsupported(payload.text)) {
-              lastFailure = 'provider_unsupported_retry';
-              continue;
+            signal: controller.signal
+          });
+          if (!response.ok) throw new Error('provider_request_failed');
+          try {
+            const providerPayload = await response.json();
+            const interpretation = normalizeProviderInterpretation(parseStructuredOutput(extractOutputText(providerPayload)));
+            const validation = validateParserInterpretation(interpretation);
+            if (validation.valid) {
+              if (attempt === 0 && interpretation.status === 'unsupported' && shouldRetryUnsupported(payload.text)) {
+                lastFailure = 'provider_unsupported_retry';
+                continue;
+              }
+              return interpretation;
             }
-            return interpretation;
+            lastFailure = `provider_schema_invalid:${validation.errors.join('|')}`;
+          } catch (error) {
+            lastFailure = error instanceof SyntaxError ? 'provider_json_invalid' : 'provider_output_invalid';
+            // A single retry is allowed for provider formatting drift. Nothing unvalidated escapes this adapter.
           }
-          lastFailure = `provider_schema_invalid:${validation.errors.join('|')}`;
-        } catch (error) {
-          lastFailure = error instanceof SyntaxError ? 'provider_json_invalid' : 'provider_output_invalid';
-          // A single retry is allowed for provider formatting drift. Nothing unvalidated escapes this adapter.
         }
+        throw new Error(lastFailure);
+      } catch (error) {
+        if (timedOut) throw new Error('provider_timeout');
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+        options.signal?.removeEventListener('abort', abortFromCaller);
       }
-      throw new Error(lastFailure);
     }
   });
 }
@@ -186,6 +207,7 @@ export function createDeepSeekRealityParserAdapter(options = {}) {
 function allowedOrigin(request, env) {
   const origin = request.headers.get('origin') || '';
   const configured = String(env?.ALLOWED_ORIGIN || '').trim();
+  if (configured === 'same-origin') return origin === new URL(request.url).origin ? origin : '';
   if (!configured) return origin;
   return origin === configured ? origin : '';
 }
@@ -226,7 +248,8 @@ export async function handleRealityParserRequest(request, env = {}, options = {}
       apiKey,
       model: env.DEEPSEEK_MODEL || DEFAULT_MODEL,
       fetchImpl: options.fetchImpl,
-      signal: options.signal
+      signal: options.signal,
+      timeoutMs: Number(env.PROVIDER_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
     });
     const interpretation = await adapter.parse(input);
     return json(interpretation, 200, origin);

@@ -94,9 +94,28 @@ class BackgroundLayerContractTests(unittest.TestCase):
         self.assertNotIn("shimmerSpeed", script)
         self.assertNotIn("breathSpeed", script)
 
-    def test_rare_sky_events_are_spaced_far_apart(self):
+    def test_anchor_stars_use_layered_spectral_light_without_changing_twinkle_cadence(self):
         script = STARFIELD_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn("random(25000, 60000)", script)
+        self.assertIn("STAR_TWINKLE_GAP_MIN = 700", script)
+        self.assertIn("STAR_TWINKLE_GAP_MAX = 6500", script)
+        self.assertIn("STAR_SPECTRAL_PALETTES", script)
+        self.assertIn("drawStarHalo", script)
+        self.assertIn("drawStarCore", script)
+        self.assertIn("drawStarDiffraction", script)
+        self.assertIn("glintAngle", script)
+        self.assertIn("haloColor", script)
+        self.assertIn("flareColor", script)
+
+    def test_colorful_meteors_are_occasional_and_slower_than_star_events(self):
+        script = STARFIELD_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("METEOR_GAP_MIN = 11000", script)
+        self.assertIn("METEOR_GAP_MAX = 26000", script)
+        self.assertIn("METEOR_SPECTRAL_PALETTES", script)
+        self.assertIn("nextMeteorDelay", script)
+        self.assertIn("drawMeteorTrail", script)
+        self.assertIn("drawMeteorHead", script)
+        self.assertIn("dataset.meteorPaletteSize", script)
+        self.assertNotIn("random(25000, 60000)", script)
         self.assertNotIn("scheduleConstellation", script)
 
     def test_starfield_animates_only_a_small_fixed_set_of_photographic_anchor_stars(self):

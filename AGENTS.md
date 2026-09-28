@@ -4,6 +4,7 @@
 - 当前产品合同：`docs/V12_1_PRODUCT_CONTRACT.md`
 - 当前产品说明：`PRODUCT.md`
 - 当前设计系统：`DESIGN.md`
+- 当前阶段唯一前端基线：`docs/CURRENT_FRONTEND_BASELINE.md`
 - 当前执行要求：`PROJECT_REQUIREMENTS.md`
 - V12.1 文档：`docs/v12-1/`
 - 参考产品研究：`docs/product-research/V12_1_LLM_PROVIDER_RESEARCH.md`
@@ -16,4 +17,7 @@
 - LLM understands. Code validates. User confirms. Code commits. 大模型没有 Reality 写权限。
 - V12.1 完成后停止，不得开始 OCR、银行同步、AI Chat、Final Hardening、V13 或新的产品功能。
 - 当前正式版本为 v0.35.0；只记录真实摩擦，不把推测自动升级为新功能。
+- 所有后续前端优化必须以 `site/index.src.html` 及其现有素材、布局、夜空氛围和交互为基础；根目录 Vite 页面、历史截图、其他分支和其他工作区不得替代当前视觉基线。
+- 默认启动入口必须持续由 `server/site-server.mjs` 服务 `site/`；`index.html`、`npm run dev`、`npm start` 和 `npm run preview` 都不得回退到 `src/main.jsx`。
+- 未经用户明确确认，不得整体重做、替换视觉方向或删除当前基线中的关键审美元素。`site/index.html` 是构建交付文件，不是单独编辑入口。
 - 用户不是技术人员；确需用户操作时必须提供具体、逐步指导。

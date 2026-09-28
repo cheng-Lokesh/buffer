@@ -13,3 +13,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+
+# 本地预览 / 调试残留（2026-09-21 整理）
+*.err.log
+*.out.log
+output/
+artifacts/
+.playwright-cli/

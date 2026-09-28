@@ -3,6 +3,7 @@
 import base64
 import os
 import re
+import subprocess
 
 D = os.path.dirname(os.path.abspath(__file__))
 A = os.path.join(D, "assets")
@@ -23,3 +24,4 @@ def inline(mo):
 out = re.sub(r"src:url\('assets/([A-Za-z0-9_]+\.woff2)'\) format\('woff2'\)", inline, src)
 open(os.path.join(D, "index.html"), "w", encoding="utf-8").write(out)
 print("内联 %d 个字体 -> index.html (%.1f KB)" % (count, len(out) / 1024))
+subprocess.run(["node", os.path.join(D, "build_runtime.mjs")], check=True)
