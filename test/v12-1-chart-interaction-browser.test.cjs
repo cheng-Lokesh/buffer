@@ -38,7 +38,7 @@ test('selecting a chart date changes its visible detail without changing confirm
     const nowMonth = nowLookup.getByLabel('月份');
     const nowDay = nowLookup.getByLabel('日期', { exact: true });
     assert.equal(await nowDay.isDisabled(), true, 'day choices depend on the chosen month');
-    const firstDate = await nowLookup.getAttribute('data-first-date');
+    const firstDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
     const requestedDate = new Date(`${firstDate}T12:00:00Z`);
     requestedDate.setUTCDate(requestedDate.getUTCDate() + 17);
     const requestedIso = requestedDate.toISOString().slice(0, 10);
@@ -77,7 +77,7 @@ test('selecting a chart date changes its visible detail without changing confirm
     const futureChart = page.getByTestId('future-chart-body');
     await page.getByTestId('future-chart-lookup-toggle').click();
     const futureLookup = page.getByTestId('future-chart-lookup');
-    const futureFirstDate = await futureLookup.getAttribute('data-first-date');
+    const futureFirstDate = firstDate;
     const futureRequestedDate = new Date(`${futureFirstDate}T12:00:00Z`);
     futureRequestedDate.setUTCDate(futureRequestedDate.getUTCDate() + 23);
     const futureRequestedIso = futureRequestedDate.toISOString().slice(0, 10);
