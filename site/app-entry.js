@@ -140,43 +140,80 @@ function chartKeyboardDay(event, currentDay, lastDay) {
   return null;
 }
 
+function chartLookupActions(space) {
+  return `<button class="chart-lookup-toggle" type="button" data-testid="${space}-chart-lookup-toggle" data-lookup-mode="date" aria-controls="${space}-chart-lookup" aria-expanded="false">查某天余额</button><button class="chart-lookup-toggle" type="button" data-testid="${space}-chart-balance-toggle" data-lookup-mode="balance" aria-controls="${space}-chart-lookup" aria-expanded="false">查余额日期</button>`;
+}
+
 function chartLookupMarkup(space, points) {
   if (!points?.length) return '';
   const months = [...new Set(points.map((point) => point.date.slice(0, 7)))];
   return `<div class="chart-lookup" id="${space}-chart-lookup" data-testid="${space}-chart-lookup" hidden>
-    <div class="chart-date-selects"><label>月份<select data-role="lookup-month" aria-label="月份"><option value="">选月份</option>${months.map((month) => `<option value="${month}">${Number(month.slice(0, 4))}年${Number(month.slice(5, 7))}月</option>`).join('')}</select></label><label>日期<select data-role="lookup-day" aria-label="日期" disabled><option value="">选日期</option></select></label></div>
-    <form data-role="lookup-balance"><label>余额首次不高于（元）<input data-role="lookup-amount" type="number" inputmode="decimal" step="0.01" placeholder="例如 2500"></label><button type="submit">查找余额</button></form>
+    <div class="chart-lookup-heading"><strong data-role="lookup-title">哪一天还剩多少？</strong><button type="button" data-role="lookup-close" aria-label="关闭查询">×</button></div>
+    <div data-role="lookup-date"><div class="chart-lookup-shortcuts">${[0, 7, 30].filter((day) => day < points.length).map((day) => `<button type="button" data-lookup-day="${day}">${day ? `${day}天后` : '今天'}</button>`).join('')}</div><div class="chart-date-selects"><label>月份<select data-role="lookup-month" aria-label="月份">${months.map((month) => `<option value="${month}">${Number(month.slice(0, 4))}年${Number(month.slice(5, 7))}月</option>`).join('')}</select></label><label>日期<select data-role="lookup-day" aria-label="日期"></select></label></div></div>
+    <form data-role="lookup-balance" hidden><label>余额降到（元）<input data-role="lookup-amount" type="number" inputmode="decimal" step="0.01" placeholder="输入金额"></label><button type="submit">查看日期</button><span class="chart-lookup-hint">找第一次降到这个金额或更低的日期</span></form>
     <p role="status" aria-live="polite"></p>
   </div>`;
 }
 
 function bindChartLookup(root, space, points, balanceCentsAt, selectDay) {
-  const toggle = root.querySelector(`[data-testid="${space}-chart-lookup-toggle"]`);
+  const toggles = [...root.querySelectorAll(`[data-lookup-mode][aria-controls="${space}-chart-lookup"]`)];
   const panel = root.querySelector(`[data-testid="${space}-chart-lookup"]`);
-  if (!toggle || !panel) return;
+  if (!toggles.length || !panel) return;
+  let mode = 'date';
   const status = panel.querySelector('[role="status"]');
-  const close = () => { panel.hidden = true; toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); };
-  toggle.addEventListener('click', () => {
-    panel.hidden = !panel.hidden;
-    toggle.setAttribute('aria-expanded', String(!panel.hidden));
-    if (!panel.hidden) panel.querySelector('[data-role="lookup-month"]').focus();
-  });
+  const setMode = (value) => {
+    mode = value;
+    panel.dataset.mode = mode;
+    panel.querySelector('[data-role="lookup-date"]').hidden = mode !== 'date';
+    panel.querySelector('[data-role="lookup-balance"]').hidden = mode !== 'balance';
+    panel.querySelector('[data-role="lookup-title"]').textContent = mode === 'date' ? '哪一天还剩多少？' : '余额什么时候降到？';
+    toggles.forEach((button) => button.setAttribute('aria-expanded', String(!panel.hidden && button.dataset.lookupMode === mode)));
+  };
+  const close = () => { panel.hidden = true; setMode(mode); toggles.find((button) => button.dataset.lookupMode === mode)?.focus(); };
+  toggles.forEach((toggle) => toggle.addEventListener('click', () => {
+    const nextMode = toggle.dataset.lookupMode;
+    if (!panel.hidden && mode === nextMode) { close(); return; }
+    panel.hidden = false;
+    setMode(nextMode);
+    status.textContent = mode === 'date' ? resultText(currentDay()) : '';
+    panel.querySelector(mode === 'date' ? '[data-role="lookup-day"]' : '[data-role="lookup-amount"]').focus();
+  }));
+  panel.querySelector('[data-role="lookup-close"]').addEventListener('click', close);
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); close(); }
   });
   const monthSelect = panel.querySelector('[data-role="lookup-month"]');
   const daySelect = panel.querySelector('[data-role="lookup-day"]');
+  const currentDay = () => Math.min(points.length - 1, Number(root.querySelector(`[data-testid="${space === 'now' ? 'now-forecast-chart' : 'future-chart-body'}"]`)?.getAttribute('aria-valuenow')) || 0);
+  const resultText = (day) => `${dateFullZh(points[day].date)} · ${day ? '预计余额' : '当前余额'} ${centsMoney(balanceCentsAt(points[day], day))}`;
+  const choose = (day, focusRole, message = resultText(day)) => {
+    const raw = panel.querySelector('[data-role="lookup-amount"]').value;
+    selectDay(day);
+    const nextPanel = root.querySelector(`[data-testid="${space}-chart-lookup"]`);
+    const nextToggle = root.querySelector(`[data-lookup-mode="${mode}"][aria-controls="${space}-chart-lookup"]`);
+    nextToggle.click();
+    nextPanel.querySelector('[data-role="lookup-amount"]').value = raw;
+    nextPanel.querySelector('[role="status"]').textContent = message;
+    nextPanel.querySelector(`[data-role="${focusRole}"]`).focus();
+  };
+  const fillDays = (month, preferred) => {
+    const dates = points.filter((point) => point.date.startsWith(`${month}-`));
+    daySelect.innerHTML = dates.map((point) => `<option value="${point.date}">${Number(point.date.slice(8, 10))}日</option>`).join('');
+    daySelect.value = dates.reduce((nearest, point) => !nearest || Math.abs(Number(point.date.slice(8)) - Number(preferred)) < Math.abs(Number(nearest.date.slice(8)) - Number(preferred)) ? point : nearest, null)?.date || '';
+  };
+  monthSelect.value = points[currentDay()].date.slice(0, 7);
+  fillDays(monthSelect.value, points[currentDay()].date.slice(8));
   monthSelect.addEventListener('change', () => {
-    const dates = points.filter((point) => point.date.startsWith(`${monthSelect.value}-`));
-    daySelect.innerHTML = `<option value="">选日期</option>${dates.map((point) => `<option value="${point.date}">${Number(point.date.slice(8, 10))}日</option>`).join('')}`;
-    daySelect.disabled = !dates.length;
-    if (dates.length) daySelect.focus();
+    fillDays(monthSelect.value, daySelect.value.slice(8));
+    const day = points.findIndex((point) => point.date === daySelect.value);
+    if (day >= 0) choose(day, 'lookup-month');
   });
   daySelect.addEventListener('change', (event) => {
     const day = points.findIndex((point) => point.date === event.target.value);
-    if (day >= 0) selectDay(day);
+    if (day >= 0) choose(day, 'lookup-day');
     else status.textContent = '请选择当前图表范围内的日期';
   });
+  panel.querySelectorAll('[data-lookup-day]').forEach((button) => button.addEventListener('click', () => choose(Number(button.dataset.lookupDay), 'lookup-day')));
   panel.querySelector('[data-role="lookup-balance"]').addEventListener('submit', (event) => {
     event.preventDefault();
     const raw = panel.querySelector('[data-role="lookup-amount"]').value.trim();
@@ -190,7 +227,7 @@ function bindChartLookup(root, space, points, balanceCentsAt, selectDay) {
       status.textContent = `${points.length - 1} 天内未达到 ${centsMoney(targetCents)}`;
       return;
     }
-    selectDay(day);
+    choose(day, 'lookup-amount', `首次达到 · ${resultText(day)}`);
   });
 }
 
@@ -390,7 +427,7 @@ function renderNow() {
         <article class="kpi glass">${nowMetricIcon('reserve')}<div><span class="kpi-label">保留金额</span><strong class="kpi-value">${centsMoney(summary.reserveCents)}</strong><span class="kpi-sub">本人设定</span></div></article>
       </section>
       <section class="middle" data-testid="now-cash-course">
-        <section class="chart-card glass" data-testid="now-projection-milestones"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2>${chart && (!nowBillView || !billRows.length) ? '<button class="chart-lookup-toggle" type="button" data-testid="now-chart-lookup-toggle" aria-controls="now-chart-lookup" aria-expanded="false">找日期或余额</button>' : ''}<div class="chart-tabs">${billRows.length ? `<button class="tab${nowBillView ? '' : ' active'}" type="button" data-action="show-forecast" aria-pressed="${!nowBillView}">现金预估</button><button class="tab${nowBillView ? ' active' : ''}" type="button" data-action="show-bill-observation" aria-pressed="${nowBillView}">账单观察</button>` : [30, 60, 90].map((day) => `<button class="tab${day === 90 ? ' active' : ''}" type="button" data-action="open-future" data-value="${day}" aria-label="查看未来 ${day} 天详情">${day} 天</button>`).join('')}<span class="cur-select">人民币 (¥)</span></div></div>${chart && (!nowBillView || !billRows.length) ? chartLookupMarkup('now', chart.points) : ''}${forecastContent}${nowBillView && billRows.length ? '' : `<div class="chart-legend"><span class="lg"><i class="dot"></i>当前确认</span><span class="lg"><i class="dash"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额（${centsMoney(summary.reserveCents)}）</span><span class="lg"><i class="dot"></i>关键节点</span></div>`}</section>
+        <section class="chart-card glass" data-testid="now-projection-milestones"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2>${chart && (!nowBillView || !billRows.length) ? chartLookupActions('now') : ''}<div class="chart-tabs">${billRows.length ? `<button class="tab${nowBillView ? '' : ' active'}" type="button" data-action="show-forecast" aria-pressed="${!nowBillView}">现金预估</button><button class="tab${nowBillView ? ' active' : ''}" type="button" data-action="show-bill-observation" aria-pressed="${nowBillView}">账单观察</button>` : [30, 60, 90].map((day) => `<button class="tab${day === 90 ? ' active' : ''}" type="button" data-action="open-future" data-value="${day}" aria-label="查看未来 ${day} 天详情">${day} 天</button>`).join('')}<span class="cur-select">人民币 (¥)</span></div></div>${chart && (!nowBillView || !billRows.length) ? chartLookupMarkup('now', chart.points) : ''}${forecastContent}${nowBillView && billRows.length ? '' : `<div class="chart-legend"><span class="lg"><i class="dot"></i>当前确认</span><span class="lg"><i class="dash"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额（${centsMoney(summary.reserveCents)}）</span><span class="lg"><i class="dot"></i>关键节点</span></div>`}</section>
         <aside class="node-card glass" data-testid="now-cash-inspector"><div class="node-head"><h2 class="node-title">节点详情</h2><button class="node-more" type="button" data-action="open-future" data-value="90">查看未来详情 <span aria-hidden="true">›</span></button></div><div class="node-date-row"><strong class="node-date">${node ? dateFullZh(node.date) : '待确认'}</strong><span class="node-day">第 ${nodeDay} 天</span></div><span class="node-desc">${node?.isTouch ? '预计触及你设定的保留金额' : '未来的一个观察时点'}</span><span class="node-bal-label">预计余额</span><div class="node-bal-row"><strong class="node-bal">${node ? centsMoney(node.balanceCents) : '待确认'}</strong><span class="node-badge">${node?.isTouch ? '触及保留金额' : '按当前情况'}</span></div><div class="factor-title">主要影响因素（较今天）</div>${inspectorFactors}<div class="node-note"><span aria-hidden="true">✦</span><p>按本人已确认的信息估算；预计变化不会修改当前记录。</p></div></aside>
       </section>
       ${dueMarkup}${checkpointMarkup}
@@ -462,7 +499,7 @@ function renderFuture() {
   root.innerHTML = `<main class="live-stack live-space-future reference-secondary reference-future">
     <section class="title-row"><h1 class="page-title">你的未来轨迹</h1><span class="page-sub">按已确认信息估算</span><button class="now-update-action" type="button" data-action="open-scenario">试算变化</button></section>
     <section class="kpis" aria-label="未来摘要"><article class="kpi glass">${nowMetricIcon('balance')}<div><span class="kpi-label">当前余额</span><strong class="kpi-value">${centsMoney(points[0]?.openingBalanceCents)}</strong><span class="kpi-sub">本人已确认</span></div></article><article class="kpi glass">${nowMetricIcon('duration')}<div><span class="kpi-label">${futureHorizon} 天后预计余额</span><strong class="kpi-value">${centsMoney(end?.closingBalanceCents)}</strong><span class="kpi-sub">按当前条件</span></div></article><article class="kpi glass">${nowMetricIcon('boundary')}<div><span class="kpi-label">保留金额边界</span><strong class="kpi-value">${view.reserveTouch.date ? dateZh(view.reserveTouch.date) : '期间未触及'}</strong><span class="kpi-sub">保留金额 ${centsMoney(view.reserveCents)}</span></div></article></section>
-    <section class="fut-mid"><article class="chart-card glass" data-testid="future-canvas"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2><button class="chart-lookup-toggle" type="button" data-testid="future-chart-lookup-toggle" aria-controls="future-chart-lookup" aria-expanded="false">找日期或余额</button><div class="chart-tabs">${[30, 60, 90].map((days) => `<button class="tab${days === futureHorizon ? ' active' : ''}" type="button" data-action="horizon" data-value="${days}" aria-pressed="${days === futureHorizon}">${days} 天</button>`).join('')}</div></div>${chartLookupMarkup('future', points)}<div class="chart-body interactive-chart" data-testid="future-chart-body" role="slider" tabindex="0" aria-label="未来预计余额，点击曲线或按方向键查看日期" aria-valuemin="0" aria-valuemax="${futureHorizon}" aria-valuenow="${selectedDay}" aria-valuetext="第 ${selectedDay} 天，${dateFullZh(selectedPoint.date)}，${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}"><svg class="chart" aria-hidden="true"></svg><div class="quote q-fut" aria-hidden="true">每条路，<br>都有它自己的风景。</div><div class="tip chart-point-readout" data-testid="future-chart-readout"><div class="t1">${dateFullZh(selectedPoint.date)}</div><div class="t2">${selectedDay === 0 ? '当前余额' : '预计余额'}</div><div class="t3">${centsMoney(selectedBalance)}</div></div></div><div class="chart-legend"><span class="lg"><i class="line"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额</span>${scenarioPoints.length ? '<span class="lg"><i class="green2"></i>试算结果</span>' : ''}</div></article>
+    <section class="fut-mid"><article class="chart-card glass" data-testid="future-canvas"><div class="chart-head"><h2 class="chart-title"><span aria-hidden="true">★</span>未来画布</h2>${chartLookupActions('future')}<div class="chart-tabs">${[30, 60, 90].map((days) => `<button class="tab${days === futureHorizon ? ' active' : ''}" type="button" data-action="horizon" data-value="${days}" aria-pressed="${days === futureHorizon}">${days} 天</button>`).join('')}</div></div>${chartLookupMarkup('future', points)}<div class="chart-body interactive-chart" data-testid="future-chart-body" role="slider" tabindex="0" aria-label="未来预计余额，点击曲线或按方向键查看日期" aria-valuemin="0" aria-valuemax="${futureHorizon}" aria-valuenow="${selectedDay}" aria-valuetext="第 ${selectedDay} 天，${dateFullZh(selectedPoint.date)}，${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}"><svg class="chart" aria-hidden="true"></svg><div class="quote q-fut" aria-hidden="true">每条路，<br>都有它自己的风景。</div><div class="tip chart-point-readout" data-testid="future-chart-readout"><div class="t1">${dateFullZh(selectedPoint.date)}</div><div class="t2">${selectedDay === 0 ? '当前余额' : '预计余额'}</div><div class="t3">${centsMoney(selectedBalance)}</div></div></div><div class="chart-legend"><span class="lg"><i class="line"></i>预计余额</span><span class="lg"><i class="red"></i>保留金额</span>${scenarioPoints.length ? '<span class="lg"><i class="green2"></i>试算结果</span>' : ''}</div></article>
     <aside class="tl-card glass" data-testid="future-inspector"><h2 class="tl-title">关键节点</h2>${selectedPoint ? `<div class="future-selected-point" data-testid="future-selected-point"><span>第 ${selectedDay} 天 · ${dateFullZh(selectedPoint.date)}</span><strong>${selectedDay === 0 ? '当前余额' : '预计余额'} ${centsMoney(selectedBalance)}</strong></div>` : ''}<span class="tl-sub">按时间顺序</span><div class="tl-list">${timeline.map((item) => `<div class="tl-item ${item.tone}"><div class="tl-date">${dateZh(item.date)}<span class="tl-tag">${item.kind}</span></div><div class="tl-desc">${escapeHtml(item.label)} · ${escapeHtml(item.amount)}</div></div>`).join('')}</div>${scenarioMarkup}${savedScenarioMarkup}</aside></section>
     <section class="fut-cards" aria-label="不同时间范围的预计结果">${horizonCards}</section>
   </main>`;

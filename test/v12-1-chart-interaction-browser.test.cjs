@@ -55,6 +55,10 @@ test('selecting a chart date changes its visible detail without changing confirm
     await nowDay.selectOption(requestedIso);
     assert.equal(await nowChart.getAttribute('aria-valuenow'), '17', 'entering a date should select that exact forecast day');
     assert.match(await page.getByTestId('now-cash-inspector').innerText(), /第 17 天/);
+    if (process.env.BUFFER_CHART_CAPTURE) {
+      fs.mkdirSync(path.resolve(__dirname, '../output/playwright'), { recursive: true });
+      await page.screenshot({ path: path.resolve(__dirname, '../output/playwright/chart-lookup-desktop.png') });
+    }
     await page.getByTestId('now-chart-balance-toggle').click();
     await nowLookup.getByLabel(/余额降到/).fill('2501');
     await nowLookup.getByRole('button', { name: '查看日期' }).click();
@@ -92,6 +96,17 @@ test('selecting a chart date changes its visible detail without changing confirm
     await futureLookup.getByLabel('月份').selectOption(futureRequestedIso.slice(0, 7));
     await futureLookup.getByLabel('日期', { exact: true }).selectOption(futureRequestedIso);
     assert.equal(await futureChart.getAttribute('aria-valuenow'), '23');
+    await futureLookup.getByRole('button', { name: '关闭查询' }).click();
+    assert.equal(await futureLookup.isVisible(), false);
+    await page.locator('[data-action="horizon"][data-value="30"]').click();
+    await page.getByTestId('future-chart-lookup-toggle').click();
+    const boundedDates = await futureLookup.getByLabel('月份').locator('option').evaluateAll((options) => options.map((item) => item.value));
+    for (const month of boundedDates) {
+      await futureLookup.getByLabel('月份').selectOption(month);
+      const choices = await futureLookup.getByLabel('日期', { exact: true }).locator('option').evaluateAll((options) => options.map((item) => item.value));
+      assert.ok(choices.every((date) => date >= firstDate && date <= new Date(new Date(`${firstDate}T12:00:00Z`).getTime() + 30 * 86400000).toISOString().slice(0, 10)));
+    }
+    await page.locator('[data-action="horizon"][data-value="90"]').click();
     await page.getByTestId('future-chart-balance-toggle').click();
     await futureLookup.getByLabel(/余额降到/).fill('2501');
     await futureLookup.getByRole('button', { name: '查看日期' }).click();
@@ -127,9 +142,15 @@ test('selecting a chart date changes its visible detail without changing confirm
     assert.equal(await futureLookup.isVisible(), true, 'narrow phones should expose the direct lookup');
     const lookupInsideViewport = await futureLookup.evaluate((panel) => {
       const rect = panel.getBoundingClientRect();
-      return rect.left >= 0 && rect.right <= document.documentElement.clientWidth + 1;
+      return rect.left >= 0 && rect.right <= document.documentElement.clientWidth + 1 && rect.top >= 0 && rect.bottom <= innerHeight;
     });
     assert.equal(lookupInsideViewport, true, 'lookup must fit narrow phones');
+    if (process.env.BUFFER_CHART_CAPTURE) {
+      await page.screenshot({ path: path.resolve(__dirname, '../output/playwright/chart-lookup-mobile.png') });
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.screenshot({ path: path.resolve(__dirname, '../output/playwright/chart-lookup-mobile-375.png') });
+      await page.setViewportSize({ width: 320, height: 700 });
+    }
     await futureLookup.getByLabel('月份').press('Escape');
     assert.equal(await futureLookup.isVisible(), false);
     assert.equal(await page.getByTestId('future-chart-lookup-toggle').getAttribute('aria-expanded'), 'false');
