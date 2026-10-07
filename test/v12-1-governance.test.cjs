@@ -12,12 +12,13 @@ function readPngSize(file) {
   return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
 }
 
-test('V12.1 is the only current product truth and stops before later product work', () => {
+test('current release stays truthful while the approved public-service direction requires full platform parity', () => {
   for (const file of ['AGENTS.md', 'PRODUCT.md', 'DESIGN.md', 'PROJECT_REQUIREMENTS.md']) {
     const text = read(file);
     assert.match(text, /docs\/V12_1_PRODUCT_CONTRACT\.md/, file);
     assert.match(text, /v0\.35\.0/, file);
-    assert.match(text, /不得.*OCR[\s\S]*银行同步[\s\S]*AI Chat[\s\S]*Final Hardening[\s\S]*V13|停止[\s\S]*OCR[\s\S]*银行同步[\s\S]*AI Chat[\s\S]*Final Hardening[\s\S]*V13/, file);
+    assert.match(text, /docs\/PUBLIC_SERVICE_AND_PARITY_SCOPE\.md/, file);
+    assert.doesNotMatch(text, /永久只有用户本人一位真实用户|永久只有用户本人一位真实用户|永久只有用户本人|本项目永久只有/, file);
   }
 
   const contract = read('docs/V12_1_PRODUCT_CONTRACT.md');
@@ -27,9 +28,14 @@ test('V12.1 is the only current product truth and stops before later product wor
   assert.match(contract, /完整历史[\s\S]*备份[\s\S]*身份资料[\s\S]*无关数据/);
   assert.match(contract, /Scenario.*Reality/s);
   assert.match(contract, /Balance Anchor/);
+  assert.match(contract, /docs\/PUBLIC_SERVICE_AND_PARITY_SCOPE\.md/);
+  const scope = read('docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md');
+  for (const phrase of ['2026-10-07', '公开服务', '双端一致', '尚未完成公开发布', '密码保护', '待用户确认', '同一输入', '数据隔离', '跨端自动同步', '不负责指导']) {
+    assert.ok(scope.includes(phrase), phrase);
+  }
 });
 
-test('AI entry points reject historical product shapes and public deployment', () => {
+test('AI entry points reject historical product shapes and distinguish approved public scope from a live public release', () => {
   for (const file of [
     'README.md',
     'AGENTS.md',
@@ -41,6 +47,7 @@ test('AI entry points reject historical product shapes and public deployment', (
     const text = read(file);
     assert.match(text, /V12_1_PRODUCT_CONTRACT\.md/, file);
     assert.match(text, /历史|historical|old contracts/i, file);
+    assert.match(text, /PUBLIC_SERVICE_AND_PARITY_SCOPE\.md/, file);
   }
 
   assert.match(read('docs/HISTORY_BOUNDARY.md'), /buffer-full-history-before-public-sanitize-2026-09-09\.bundle/);
