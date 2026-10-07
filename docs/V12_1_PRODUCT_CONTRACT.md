@@ -2,11 +2,13 @@
 
 > Current release: v0.35.0, LLM Reality Parser. This file is the highest current product authority.
 
+> 2026-10-07 定位更新：用户已授权朝公开服务推进，并要求网页版与小程序版双端一致。当前方向与验收目标见 [`docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md`](PUBLIC_SERVICE_AND_PARITY_SCOPE.md)。本合同的现实、解析、确认与数据安全规则继续有效；旧单用户与完成后停止限制被该明确决策取代。当前代码尚未完成公开发布门禁。
+
 ## Product purpose
 
-Buffer is a personal reality-state and future-simulation product for periods of unstable income. It reflects the one real user's confirmed cash reality, derives a forecast, and compares explicit scenarios. It does not prescribe what the user should do.
+Buffer is a personal reality-state and future-simulation product for periods of unstable income, now being prepared for public service with full web and Mini Program parity. It reflects each user's own confirmed cash reality, derives a forecast, and compares explicit scenarios. It does not prescribe what the user should do.
 
-Highest principle: **缓冲区负责反映，不负责指导。** Buffer 永久只有用户本人一位真实用户；验收不依赖招募、多人成果或合成活跃数据。
+Highest principle: **缓冲区负责反映，不负责指导。** 公开服务必须保护各用户独立的现实数据；不得制造活跃数据或真实验收成果。
 
 ## Reality Language Principle
 
@@ -78,6 +80,8 @@ Reality Capture 仍是“输入 → 理解 → 确认 → 完成”，不是 Cha
 
 ## Protected private pilot
 
+以下是 v0.35.0 当前运行边界，不是未来永久产品定位。公开服务门禁未通过前保持密码保护；不因定位变化立即公开原有站点或原有用户数据。未来账号、跨端同步与收费仍需用户确认。
+
 唯一真实用户可以把当前 V12.1 部署为受身份验证保护的私有试用站点。这属于发布与维护，不是新产品功能。私有试用必须同时满足：
 
 - 整个站点与解析函数由中国境内托管平台的整站密码保护，只允许本人访问；匿名访问不得读取静态页面或调用解析函数。
@@ -91,8 +95,8 @@ Reality Capture 仍是“输入 → 理解 → 确认 → 完成”，不是 Cha
 
 v0.34.0 的 schema 9 Reality、conditions、events、resolutions、snapshots、scenario drafts 和旧备份无损可读。用户确认后的 provenance 可继续备份恢复；原始 prompt、provider response、澄清和候选临时状态默认不持久化。
 
-## Permanent exclusions and stop rule
+## Existing release exclusions and new authorized direction
 
 V12.1 不做 OCR、截图或账单识别、银行或支付平台同步、AI Chat、AI Advisor、AI 报告、AI 风险评分、Tool Calling、长期 AI Memory、自动预测、自动执行、Final Hardening、V13 或新的产品模块。
 
-V12.1 完成后停止。只记录唯一真实用户的真实摩擦，不把推测自动升级为新功能。
+V12.1 的旧停止规则不阻止 2026-10-07 明确授权的公开服务与双端一致推进。该授权不自动加入上述无关功能；实施边界及未决方案以当前定位决策为准，旧验收不得冒充新的公开发布验收。

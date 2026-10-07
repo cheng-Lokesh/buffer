@@ -2,6 +2,7 @@
 
 - **只允许从本文件列出的当前入口判断产品形态。** `CHANGELOG.md`、旧版本合同/蓝图、`docs/testing/`、`docs/version-screenshots/`、历史分支和旧版本标签都只是迁移与回归证据，不是需求来源；不得据此恢复旧功能、旧导航或旧产品定义。
 - 当前产品合同：`docs/V12_1_PRODUCT_CONTRACT.md`
+- 当前公开服务与双端一致定位：`docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md`（2026-10-07 用户明确决策；覆盖旧单用户与停止限制，不表示已公开上线）
 - 当前产品说明：`PRODUCT.md`
 - 当前设计系统：`DESIGN.md`
 - 当前阶段唯一前端基线：`docs/CURRENT_FRONTEND_BASELINE.md`
@@ -10,14 +11,15 @@
 - 参考产品研究：`docs/product-research/V12_1_LLM_PROVIDER_RESEARCH.md`
 - 最终测试证据：`docs/v12-1/08-final-acceptance.md`
 - 最高原则：缓冲区负责反映，不负责指导。
-- 本项目永久只有用户本人一位真实用户；不得要求招募、访谈、多人样本或合成数据。
+- 本项目朝公开服务推进；网页版和小程序版须完成双端一致验收。不得把测试夹具或推测冒充真实用户成果。
 - 不得破坏旧备份、迁移链、六套皮肤、小程序核心语义或用户未提交文件。
 - Reality Capture 原则：Buffer 不追求完整账本，只采集足以重新确认当前状态和改变未来预测的现实。
 - AI may parse. User must confirm. Only confirmed facts become Reality.
 - LLM understands. Code validates. User confirms. Code commits. 大模型没有 Reality 写权限。
-- V12.1 完成后停止，不得开始 OCR、银行同步、AI Chat、Final Hardening、V13 或新的产品功能。
+- 允许推进已明确授权的公开服务与双端一致工作；账号/同步及收费方案待确认。不自动扩展为 OCR、银行同步、AI Chat、财务建议或其他无关功能。
 - 当前正式版本为 v0.35.0；只记录真实摩擦，不把推测自动升级为新功能。
 - 所有后续前端优化必须以 `site/index.src.html` 及其现有素材、布局、夜空氛围和交互为基础；根目录 Vite 页面、历史截图、其他分支和其他工作区不得替代当前视觉基线。
 - 默认启动入口必须持续由 `server/site-server.mjs` 服务 `site/`；`index.html`、`npm run dev`、`npm start` 和 `npm run preview` 都不得回退到 `src/main.jsx`。
 - 未经用户明确确认，不得整体重做、替换视觉方向或删除当前基线中的关键审美元素。`site/index.html` 是构建交付文件，不是单独编辑入口。
 - 用户不是技术人员；确需用户操作时必须提供具体、逐步指导。
+- 公开服务门禁未完成前保留现有线上密码保护；不得将开发目标当作已实现能力或擅自开放私有数据与解析接口。

@@ -5,6 +5,7 @@
 AI、开发者和审查者只能从以下文件判断当前产品形态，顺序如下：
 
 1. `docs/V12_1_PRODUCT_CONTRACT.md`
+   - `docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md`：2026-10-07 用户明确批准的新定位，覆盖旧单用户与停止限制；不是公开发布完成证据。
 2. `AGENTS.md`
 3. `PRODUCT.md`
 4. `PROJECT_REQUIREMENTS.md`
@@ -12,6 +13,8 @@ AI、开发者和审查者只能从以下文件判断当前产品形态，顺序
 6. `docs/v12-1/`
 
 当前正式版本是 v0.35.0（V12.1 LLM Reality Parser）。
+
+历史验收和旧停止规则不能推翻已确认的公开服务与双端一致方向，亦不能证明新公开服务门禁已完成。历史材料仍不可作为恢复旧功能的需求来源。
 
 ## 默认分支边界
 

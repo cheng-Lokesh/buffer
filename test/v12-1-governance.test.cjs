@@ -18,7 +18,7 @@ test('current release stays truthful while the approved public-service direction
     assert.match(text, /docs\/V12_1_PRODUCT_CONTRACT\.md/, file);
     assert.match(text, /v0\.35\.0/, file);
     assert.match(text, /docs\/PUBLIC_SERVICE_AND_PARITY_SCOPE\.md/, file);
-    assert.doesNotMatch(text, /永久只有用户本人一位真实用户|永久只有用户本人一位真实用户|永久只有用户本人|本项目永久只有/, file);
+    assert.doesNotMatch(text, /永久只有用户本人|本项目永久只有/, file);
   }
 
   const contract = read('docs/V12_1_PRODUCT_CONTRACT.md');

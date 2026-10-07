@@ -1,5 +1,7 @@
 # V12.1 Deferred Items
 
+2026-10-07 scope update: the user explicitly approved public-service positioning and full web/Mini Program parity; see [`docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md`](../PUBLIC_SERVICE_AND_PARITY_SCOPE.md). This report describes the old release, not the newly authorized direction or a public-release acceptance. Account/sync and monetization remain pending user decisions. Unrelated exclusions below remain excluded.
+
 ## Open release defects
 
 - P0: 0

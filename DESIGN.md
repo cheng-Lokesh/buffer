@@ -2,6 +2,8 @@
 
 > **当前状态：V12.1 已发布，正式版本 v0.35.0。** 产品定义以 [`docs/V12_1_PRODUCT_CONTRACT.md`](docs/V12_1_PRODUCT_CONTRACT.md) 为最高权威；六套皮肤覆盖矩阵见 [`docs/VISUAL_SKIN_PRODUCT_MATRIX.md`](docs/VISUAL_SKIN_PRODUCT_MATRIX.md)。
 
+> **2026-10-07：公开服务与双端一致方向已授权。** 具体范围见 [`docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md`](docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md)。继续沿用 `site/` 当前视觉基线；小程序须具备相同功能、信息、中文文案、语义颜色与反馈流程。允许原生触控适配，不允许删减能力，不以桌面/手机像素位置相同定义一致。
+
 ## 设计命题
 
 Buffer 是一张安静、可信、可以核对的现实时间地图。V11 的视觉命题是：**安静的纸面观察界面，图表是一块证据画布，不是一台控制终端。**
@@ -104,4 +106,4 @@ Buffer 是一张安静、可信、可以核对的现实时间地图。V11 的视
 
 ## Historical / Superseded
 
-早期阶段关于行动助手、个人管理、学习、成长角色和旧任务域的设计均已被 V10/V11/V12/V12.1 取代。V12.1 完成后停止，不得开始 OCR、银行同步、AI Chat、Final Hardening、V13 或新的产品功能。
+早期阶段关于行动助手、个人管理、学习、成长角色和旧任务域的设计均已被 V10/V11/V12/V12.1 取代，不能据此恢复旧功能。2026-10-07 已授权公开服务与双端一致，不自动授权 OCR、银行同步、AI Chat、财务建议或其他无关设计。
