@@ -30,8 +30,24 @@ test('current release stays truthful while the approved public-service direction
   assert.match(contract, /Balance Anchor/);
   assert.match(contract, /docs\/PUBLIC_SERVICE_AND_PARITY_SCOPE\.md/);
   const scope = read('docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md');
-  for (const phrase of ['2026-10-07', '公开服务', '双端一致', '尚未完成公开发布', '密码保护', '待用户确认', '同一输入', '数据隔离', '跨端自动同步', '不负责指导']) {
+  for (const phrase of ['2026-10-07', '公开服务', '双端一致', '尚未完成公开发布', '密码保护', '同一输入', '数据隔离', '跨端自动同步', '不负责指导']) {
     assert.ok(scope.includes(phrase), phrase);
+  }
+});
+
+test('confirmed unified account, automatic sync and free launch are not treated as unresolved decisions or existing capabilities', () => {
+  const scope = read('docs/PUBLIC_SERVICE_AND_PARITY_SCOPE.md');
+  assert.match(scope, /已确认实施选择/);
+  assert.match(scope, /统一账号[\s\S]*跨端自动同步[\s\S]*首发免费/);
+  assert.match(scope, /不接支付或订阅/);
+  assert.match(scope, /PUBLIC_SERVICE_PRD\.md/);
+  assert.doesNotMatch(scope, /是否统一账号|推荐方案尚未形成用户决定/);
+  const prd = read('docs/PUBLIC_SERVICE_PRD.md');
+  for (const heading of ['1. Executive Summary', '2. User Experience & Functionality', '3. AI System Requirements', '4. Technical Specifications', '5. Risks & Roadmap']) {
+    assert.ok(prd.includes(heading), heading);
+  }
+  for (const phrase of ['尚未实现', '数据隔离', '冲突', '原子', 'TBD', '不自动上传', '不接支付或订阅']) {
+    assert.ok(prd.includes(phrase), phrase);
   }
 });
 
