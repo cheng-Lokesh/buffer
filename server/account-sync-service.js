@@ -77,6 +77,7 @@ export function createAccountSyncService({authenticate, repository, applyConfirm
         const receipt = await tx.getReceipt(command.deletionGeneration, command.operationId);
         if (receipt) return receipt.digest === digest ? response(200, receipt.result) : conflict('operation_id_conflict');
         if (command.baseRevision !== row.revision) return conflict('revision_conflict');
+        if (!version(row.revision + 1) || (command.operation.type === 'delete_all' && !version(row.deletionGeneration + 1))) return conflict('version_exhausted');
         if (command.operation.type === 'import_local' && row.state !== null) return conflict('migration_requires_empty_account');
         let state = null;
         if (command.operation.type !== 'delete_all') {
