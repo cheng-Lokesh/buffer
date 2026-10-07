@@ -123,7 +123,7 @@ function pageHeading(kicker, title, _copy, action = '') {
 function dateZh(value) {
   if (!value) return '日期待确认';
   const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00+08:00`);
-  return Number.isNaN(parsed.getTime()) ? escapeHtml(value) : new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(parsed);
+  return Number.isNaN(parsed.getTime()) ? escapeHtml(value) : new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'short', day: 'numeric' }).format(parsed);
 }
 
 function chartDayAtClientX(event, body, lastDay, left, rightGap) {
@@ -235,7 +235,7 @@ function bindChartLookup(root, space, points, balanceCentsAt, selectDay) {
 function dateFullZh(value) {
   if (!value) return '日期待确认';
   const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00+08:00`);
-  return Number.isNaN(parsed.getTime()) ? escapeHtml(value) : new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }).format(parsed);
+  return Number.isNaN(parsed.getTime()) ? escapeHtml(value) : new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' }).format(parsed);
 }
 
 function signedCents(value, direction) {
