@@ -51,9 +51,23 @@ test('delete advances generation and old offline commands or receipts cannot res
   const {service,repository}=await setup();await service(request(command()));
   const deletion=command({baseRevision:1,operationId:'operation-test-delete',operation:{type:'delete_all'}});
   const deleted=await service(request(deletion));assert.equal(deleted.status,200);assert.equal(repository.rows.get('a').deletionGeneration,1);assert.equal(repository.rows.get('a').state,null);
+  assert.deepEqual(await (await service(request(deletion))).json(),await deleted.json());
   assert.equal((await service(request(command()))).status,409);
   assert.equal((await service(request(command({baseRevision:2,operationId:'operation-test-0003'})))).status,409);
   assert.equal((await service(request(command({baseRevision:2,deletionGeneration:1,operationId:'operation-test-0003'})))).status,200);
+});
+test('exhausted revision counters reject writes without corrupting a readable account',async()=>{
+  const {service,repository}=await setup();const maximum=Number.MAX_SAFE_INTEGER-1;
+  repository.rows.set('a',{revision:maximum,deletionGeneration:0,state:{count:1}});
+  const result=await service(request(command({baseRevision:maximum})));
+  assert.equal(result.status,409);assert.equal(repository.rows.get('a').revision,maximum);
+});
+test('receipt failure rolls back the complete transaction and allows a safe retry',async()=>{
+  const {createAccountSyncService}=await load();const repository=fixture();let fail=true;
+  const failingRepository={transaction:(account,callback)=>repository.transaction(account,tx=>callback({...tx,putReceipt:async(...args)=>{if(fail)throw new Error('private database detail');return tx.putReceipt(...args);}}))};
+  const service=createAccountSyncService({authenticate:async()=>({accountId:'a'}),repository:failingRepository,applyConfirmedOperation:async()=>({state:{count:1}})});
+  assert.equal((await service(request(command()))).status,503);assert.equal(repository.rows.size,0);
+  fail=false;assert.equal((await service(request(command()))).status,200);assert.equal(repository.rows.get('a').revision,1);
 });
 test('failed validation/transaction never acknowledge success or leak financial errors',async()=>{
   const {createAccountSyncService}=await load();const repository=fixture();
