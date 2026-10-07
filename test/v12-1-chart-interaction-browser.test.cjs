@@ -10,7 +10,7 @@ const contentTypes = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascr
 test('selecting a chart date changes its visible detail without changing confirmed reality', { timeout: 60_000 }, async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] });
   try {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', timezoneId: 'America/Los_Angeles' });
     await context.route('http://buffer-chart.test/**', (route) => {
       const requestPath = new URL(route.request().url()).pathname;
       const file = path.resolve(siteRoot, `.${requestPath === '/' ? '/index.html' : requestPath}`);
@@ -54,6 +54,8 @@ test('selecting a chart date changes its visible detail without changing confirm
     assert.ok((await nowDay.locator('option').evaluateAll((options) => options.map((item) => item.value))).includes(requestedIso));
     await nowDay.selectOption(requestedIso);
     assert.equal(await nowChart.getAttribute('aria-valuenow'), '17', 'entering a date should select that exact forecast day');
+    const expectedCalendarDate = `${Number(requestedIso.slice(0,4))}年${Number(requestedIso.slice(5,7))}月${Number(requestedIso.slice(8))}日`;
+    assert.ok((await nowLookup.getByRole('status').innerText()).includes(expectedCalendarDate), 'selected China date must not shift on an overseas device');
     assert.match(await page.getByTestId('now-cash-inspector').innerText(), /第 17 天/);
     if (process.env.BUFFER_CHART_CAPTURE) {
       fs.mkdirSync(path.resolve(__dirname, '../output/playwright'), { recursive: true });
