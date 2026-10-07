@@ -36,7 +36,7 @@ test('both platforms share Asia/Shanghai dates regardless of device timezone', a
   assert.equal(web.shanghaiDate('2026-10-07T16:00:00Z'),'2026-10-08');
   assert.equal(web.shanghaiDate('invalid'),null);
   for (const raw of ['2501','-10.12','1.001',null]) assert.equal(mini.parseLookupCents(raw),web.parseLookupCents(raw));
-  const source=readFileSync(new URL('../src/forecast-lookup.js',import.meta.url),'utf8');
-  const generated=readFileSync(new URL('../miniprogram/core/forecast-lookup.js',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../src/forecast-lookup.js',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  const generated=readFileSync(new URL('../miniprogram/core/forecast-lookup.js',import.meta.url),'utf8').replace(/\r\n/g,'\n');
   assert.ok(generated.includes(source.replace(/^export /gm,'')), 'mini copy is generated from the authoritative shared source');
 });
