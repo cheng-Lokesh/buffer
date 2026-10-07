@@ -8,13 +8,14 @@ import { prepareBackupPreview } from '../src/backup-restore.js';
 import { buildNowDashboardFacts } from '../src/v12-1-now-dashboard-facts.js';
 import { buildNowForecastChart } from '../src/v12-1-now-forecast-chart.js';
 import { createBalanceAxis, formatChartAmount } from '../src/v12-1-chart-axis.js';
+import { parseLookupCents, findBalanceDay, shanghaiDate } from '../src/forecast-lookup.js';
 import { parseBillCsv, summarizeBillRows, setBillRowStatus, includeClearBillRows } from '../src/bill-observation.js';
 
 const SITE_APPEARANCE = 'ink-contours';
 
 const STATE_KEY = 'buffer-zone.product.state.v1';
 const RECOVERY_KEY = 'buffer-zone.recovery.v1';
-const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+const today = () => shanghaiDate();
 const nowIso = () => new Date().toISOString();
 const money = (value) => `¥${new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(Number(value || 0))}`;
 const centsMoney = (value) => value == null ? '待确认' : money(value / 100);
@@ -217,12 +218,12 @@ function bindChartLookup(root, space, points, balanceCentsAt, selectDay) {
   panel.querySelector('[data-role="lookup-balance"]').addEventListener('submit', (event) => {
     event.preventDefault();
     const raw = panel.querySelector('[data-role="lookup-amount"]').value.trim();
-    if (!/^-?\d+(?:\.\d{1,2})?$/.test(raw) || !Number.isSafeInteger(Math.round(Number(raw) * 100))) {
+    const targetCents = parseLookupCents(raw);
+    if (targetCents == null) {
       status.textContent = '请输入金额，最多保留两位小数';
       return;
     }
-    const targetCents = Math.round(Number(raw) * 100);
-    const day = points.findIndex((point, index) => balanceCentsAt(point, index) <= targetCents);
+    const day = findBalanceDay(points, targetCents, balanceCentsAt);
     if (day < 0) {
       status.textContent = `${points.length - 1} 天内未达到 ${centsMoney(targetCents)}`;
       return;

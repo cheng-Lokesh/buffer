@@ -1,0 +1,33 @@
+// Shared, read-only forecast query rules. No storage or Reality mutation.
+export function parseLookupCents(raw) {
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!/^-?\d+(?:\.\d{1,2})?$/.test(text)) return null;
+  const negative = text.startsWith('-');
+  const [whole, fraction = ''] = text.replace(/^-/, '').split('.');
+  // Parse the integer cents directly, without a floating-point yuan conversion.
+  const cents = Number(`${whole}${fraction.padEnd(2, '0')}`);
+  return Number.isSafeInteger(cents) ? (negative && cents !== 0 ? -cents : cents) : null;
+}
+
+export function findBalanceDay(points, targetCents, balanceAt) {
+  if (!Number.isSafeInteger(targetCents)) return -1;
+  return points.findIndex((point, index) => {
+    const balance = balanceAt(point, index);
+    return Number.isSafeInteger(balance) && balance <= targetCents;
+  });
+}
+
+export function lookupDateOptions(points, selectedDate) {
+  const months = [...new Set(points.map(point => point.date.slice(0, 7)))];
+  const monthIndex = Math.max(0, months.indexOf(String(selectedDate).slice(0, 7)));
+  const dates = points.filter(point => point.date.slice(0, 7) === months[monthIndex]).map(point => point.date);
+  const preferred = Number(String(selectedDate).slice(8)) || 1;
+  const nearest = dates.reduce((best, date) => !best || Math.abs(Number(date.slice(8)) - preferred) < Math.abs(Number(best.slice(8)) - preferred) ? date : best, '');
+  return { months, monthIndex, dates, dayIndex: Math.max(0, dates.indexOf(nearest)) };
+}
+
+export function shanghaiDate(instant = Date.now()) {
+  const date = new Date(new Date(instant).getTime() + 8 * 60 * 60 * 1000);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}

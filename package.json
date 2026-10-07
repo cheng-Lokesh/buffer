@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server/site-server.mjs",
     "start": "node server/site-server.mjs",
-    "build": "python site/build_index.py && node scripts/build-edgeone-static.mjs",
+    "build": "node scripts/build-mini-shared.mjs && python site/build_index.py && node scripts/build-edgeone-static.mjs",
     "preview": "node server/site-server.mjs",
     "verify:miniprogram": "node scripts/verify-miniprogram-release.cjs",
     "test:miniprogram": "node --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs",

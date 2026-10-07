@@ -3,15 +3,14 @@ const { getSkin } = require('../../core/skins');
 const { buildCashRealityProjection, buildNowSummary, explainProjectionPoint, createScenarioPatch, runScenarioPatch } = require('../../core/v8-cash-reality');
 const { formatMoney, applySkinChrome, drawTrajectory } = require('../../utils/view');
 const { createSceneState } = require('../../core/viewport');
+const { parseLookupCents, findBalanceDay, lookupDateOptions, shanghaiDate } = require('../../core/forecast-lookup');
 
 function today() {
-  const date = new Date();
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return shanghaiDate();
 }
 
 function moneyFromCents(value) {
-  return Number.isFinite(Number(value)) ? formatMoney(Number(value) / 100) : '待确认';
+  return Number.isSafeInteger(value) ? formatMoney(value / 100) : '待确认';
 }
 
 function chartPoints(projection) {
@@ -22,6 +21,7 @@ Page({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', rangeDays: 60,
     projection: null, summary: null, trajectory: [], pointOptions: [], selectedDate: '', selectedPoint: null,
+    lookupMode: 'date', lookupAmount: '', lookupResult: '', lookupMonths: [], lookupMonthLabels: [], lookupMonthIndex: 0, lookupDates: [], lookupDayLabels: [], lookupDayIndex: 0,
     touchLabel: '待确认', endBalanceLabel: '待确认', openingLabel: '待确认', inflowLabel: '待确认', recurringLabel: '待确认', dailyLabel: '待确认', eventLabel: '待确认', closingLabel: '待确认',
     simulationDaily: '', simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '',
     ...createSceneState('future')
@@ -38,7 +38,7 @@ Page({
       skin, skinClass: `skin-${skin.id}`, projection, summary, selectedDate, pointOptions, trajectory: chartPoints(projection),
       touchLabel: summary.status === 'unknown' ? '待确认' : summary.reserveTouchDate || `超过 ${this.data.rangeDays} 天`,
       endBalanceLabel: summary.status === 'unknown' ? '待确认' : moneyFromCents(summary.rangeEndBalanceCents)
-    }, () => { this.refreshPoint(); this.drawActiveChart(); });
+    }, () => { this.refreshPoint(); this.refreshLookup(); this.drawActiveChart(); });
   },
   refreshPoint() {
     const point = explainProjectionPoint(this.data.projection, this.data.selectedDate);
@@ -59,7 +59,45 @@ Page({
   selectScene(event) { this.setData(createSceneState('future', Number(event.currentTarget.dataset.index)), () => this.drawActiveChart()); },
   changeScene(event) { this.setData(createSceneState('future', Number(event.detail.current)), () => this.drawActiveChart()); },
   setRange(event) { this.setData({ rangeDays: Number(event.currentTarget.dataset.range), selectedDate: '' }, () => this.refresh()); },
-  selectPoint(event) { this.setData({ selectedDate: event.currentTarget.dataset.date }, () => this.refreshPoint()); },
+  selectPoint(event) { this.selectLookupDate(event.currentTarget.dataset.date); },
+  refreshLookup() {
+    const points = this.data.projection && this.data.projection.valid ? this.data.projection.points : [];
+    const choices = lookupDateOptions(points, this.data.selectedDate);
+    const index = points.findIndex(point => point.date === this.data.selectedDate);
+    const point = points[index];
+    const cents = point ? (index === 0 ? point.openingBalanceCents : point.closingBalanceCents) : null;
+    this.setData({
+      lookupMonths: choices.months, lookupMonthLabels: choices.months.map(month => `${month.slice(0, 4)}年${Number(month.slice(5))}月`), lookupMonthIndex: choices.monthIndex,
+      lookupDates: choices.dates, lookupDayLabels: choices.dates.map(date => `${Number(date.slice(8))}日`), lookupDayIndex: choices.dayIndex,
+      lookupResult: point ? `${point.date} · ${index === 0 ? '当前余额' : '预计余额'} ${moneyFromCents(cents)}` : '先确认基础条件'
+    });
+  },
+  openLookup(event) {
+    this.setData({ ...createSceneState('future', 1), lookupMode: event.currentTarget.dataset.mode === 'balance' ? 'balance' : 'date' });
+    this.refreshLookup();
+  },
+  selectLookupDate(date) {
+    if (!this.data.projection || !this.data.projection.valid || !this.data.projection.points.some(point => point.date === date)) return;
+    this.setData({ selectedDate: date }, () => { this.refreshPoint(); this.refreshLookup(); });
+  },
+  changeLookupMonth(event) {
+    const month = this.data.lookupMonths[Number(event.detail.value)];
+    if (!month) return;
+    const choices = lookupDateOptions(this.data.projection.points, `${month}-${this.data.selectedDate.slice(8)}`);
+    this.selectLookupDate(choices.dates[choices.dayIndex]);
+  },
+  changeLookupDay(event) { this.selectLookupDate(this.data.lookupDates[Number(event.detail.value)]); },
+  setLookupAmount(event) { this.setData({ lookupAmount: event.detail.value }); },
+  lookupBalance() {
+    if (!this.data.projection || !this.data.projection.valid) return this.setData({ lookupResult: '先确认基础条件' });
+    const target = parseLookupCents(this.data.lookupAmount);
+    if (target == null) return this.setData({ lookupResult: '请输入金额，最多保留两位小数' });
+    const points = this.data.projection.points;
+    const index = findBalanceDay(points, target, (point, day) => day === 0 ? point.openingBalanceCents : point.closingBalanceCents);
+    if (index < 0) return this.setData({ lookupResult: `${points.length - 1} 天内未达到 ${moneyFromCents(target)}` });
+    this.selectLookupDate(points[index].date);
+    this.setData({ lookupResult: `首次达到 · ${this.data.lookupResult}` });
+  },
   setSimulationDaily(event) { this.setData({ simulationDaily: event.detail.value, simulationError: '' }); },
   runSimulation() {
     const amount = Number(this.data.simulationDaily);

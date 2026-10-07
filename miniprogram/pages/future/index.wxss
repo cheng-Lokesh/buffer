@@ -9,6 +9,16 @@
 .future-unknown { margin-top: 16rpx; }
 .future-unknown .primary { width: 100%; margin-top: 20rpx; }
 .date-strip { width: 100%; white-space: nowrap; }
+.lookup-actions { margin: 12rpx 0; }
+.lookup-actions button { min-height: 88rpx; font-size: 28rpx; }
+.lookup-controls { margin-bottom: 16rpx; }
+.lookup-pickers { display: flex; gap: 12rpx; }
+.lookup-pickers picker { flex: 1; min-width: 0; }
+.lookup-picker { min-height: 88rpx; display: flex; align-items: center; justify-content: center; border: 1rpx solid currentColor; border-radius: 12rpx; font-size: 28rpx; }
+.lookup-amount-row { display: flex; align-items: center; gap: 12rpx; }
+.lookup-amount-row input { flex: 1; min-width: 0; }
+.lookup-amount-row button { min-height: 88rpx; font-size: 28rpx; }
+.lookup-result { margin: 16rpx 0; font-size: 28rpx; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
 .date-row { display: inline-flex; gap: 10rpx; padding: 2rpx 4rpx 14rpx; }
 .date-chip { min-width: 120rpx; min-height: 66rpx; padding: 0 18rpx; color: inherit; background: rgba(255,255,255,.54); font-size: 22rpx; line-height: 66rpx; }
 .date-chip.active { color: #fff; background: #285b3d; }
