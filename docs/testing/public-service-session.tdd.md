@@ -46,3 +46,23 @@ No new cloud permission was written during this session-provider change.
 Sources: [sign-in](https://docs.cloudbase.net/http-api/auth/auth-sign-in),
 [refresh](https://docs.cloudbase.net/http-api/auth/auth-grant-token),
 [profile](https://docs.cloudbase.net/http-api/auth/user-me).
+
+## Approved live configuration and follow-up acceptance
+
+After action-time user authorization, the existing environment was configured
+for the dedicated subject, 5 requests/source/minute and 100 requests/app/day.
+An atomic conflict-rejecting insert was used; the complete editor query was
+checked against the intended SQL before execution. Independent SELECT returned
+1 configured account, limits 5/100, private-table isolation true and anonymous
+RPC isolation true. No financial table permissions were granted.
+
+Official refresh returned HTTP200 and a rotated refresh token with the same
+ordinary role, subject and environment. Actual session-provider plus RPC-guard
+calls returned five admission successes followed by false; first random-code
+digest insertion returned true, repeat false. Anonymous RPC returned HTTP401.
+The follow-up verification command exited 0. No actual WeChat login code was used.
+One earlier combined live command exited 1 with a sanitized generic failure;
+its exact cause was not captured. Subsequent staged and complete checks passed.
+Daily cap exhaustion, time-boundary reset, revocation and full user E2E remain
+unverified. Earlier empty-config denial evidence above is historical, not the
+current configuration. The public deployment and frontend remain unchanged.
