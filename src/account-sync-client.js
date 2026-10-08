@@ -1,0 +1,125 @@
+// Shared client protocol. No login bypass, automatic legacy upload or production mock.
+const copy = value => JSON.parse(JSON.stringify(value));
+const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const counter = value => Number.isSafeInteger(value) && value >= 0;
+const emptyView = () => ({protocolVersion:1,schemaVersion:9,revision:0,deletionGeneration:0,state:null});
+const validView = value => object(value) && value.protocolVersion === 1 && value.schemaVersion === 9 && counter(value.revision) && counter(value.deletionGeneration) && (value.state === null || object(value.state));
+const operationTypes = new Set(['confirm_reality','import_local','delete_all']);
+
+/** Supply account identity only after real authentication. Transport must use the
+ * current verified session, not a client-supplied owner field. Storage writes must
+ * be atomic per key. App-specific candidate validation remains mandatory before
+ * enqueueConfirmed. This controller is not mounted without real platform adapters.
+ */
+export function createAccountSyncClient({storage,transport,createOperationId} = {}) {
+  if (typeof storage?.getItem !== 'function' || typeof storage?.setItem !== 'function' || typeof transport?.read !== 'function' || typeof transport?.write !== 'function' || typeof createOperationId !== 'function') throw new Error('sync_client_adapters_required');
+  let account = '', session = 0, phase = 'signed_out', activeFlush = null, migrationPreview = null;
+  let cache = {version:1,server:emptyView(),localState:null,queue:[],conflict:null};
+  const key = () => `buffer-zone.account.sync.v1:${encodeURIComponent(account)}`;
+  const current = stamp => account && session === stamp;
+  const ensureAccount = () => { if (!account) throw new Error('authentication_required'); };
+  const ensureConfirmation = options => { if (options?.confirmed !== true) throw new Error('explicit_confirmation_required'); };
+  const persist = next => { storage.setItem(key(),JSON.stringify(next)); cache = copy(next); };
+  const status = () => ({phase,revision:cache.server.revision,deletionGeneration:cache.server.deletionGeneration,pendingCount:cache.queue.length,state:copy(cache.localState),conflict:cache.conflict ? copy(cache.conflict) : null});
+  function inspectCache(raw) {
+    try {
+      const value = JSON.parse(raw);
+      if (value.version !== 1 || !validView(value.server) || !Array.isArray(value.queue) || !(value.localState === null || object(value.localState)) || !(value.conflict === null || validView(value.conflict))) throw new Error();
+      for (const item of value.queue) if (!object(item) || item.protocolVersion !== 1 || item.schemaVersion !== 9 || item.confirmed !== true || !counter(item.baseRevision) || !counter(item.deletionGeneration) || typeof item.operationId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(item.operationId) || !object(item.operation) || !operationTypes.has(item.operation.type)) throw new Error();
+      return value;
+    } catch { throw new Error('account_cache_invalid_restore_backup_required'); }
+  }
+  async function refresh() {
+    ensureAccount(); const stamp=session;
+    try {
+      const result=await transport.read();
+      if (!current(stamp)) return;
+      if (result.status === 401) { phase='session_expired'; return; }
+      if (result.status !== 200 || !validView(result.body)) { phase='unavailable'; return; }
+      const remote=copy(result.body);
+      if (remote.deletionGeneration < cache.server.deletionGeneration || (remote.deletionGeneration === cache.server.deletionGeneration && remote.revision < cache.server.revision)) { phase='unavailable'; return; }
+      if (remote.deletionGeneration > cache.server.deletionGeneration) {
+        persist({...cache,server:remote,localState:remote.state,queue:[],conflict:null});phase='remote_deleted'; return;
+      }
+      if (cache.queue.length) {
+        if (remote.revision !== cache.server.revision) { persist({...cache,conflict:remote});phase='conflict'; }
+        else phase='pending';
+      } else { persist({...cache,server:remote,localState:remote.state,conflict:null});phase='synced'; }
+    } catch { if (current(stamp)) phase='offline'; }
+    return status();
+  }
+  async function activateAccount(id) {
+    if (typeof id !== 'string' || !id.trim() || id.length > 200) throw new Error('invalid_account_scope');
+    session++;account=id;phase='loading';activeFlush=null;migrationPreview=null;
+    cache={version:1,server:emptyView(),localState:null,queue:[],conflict:null};
+    try { const raw=storage.getItem(key()); if (raw !== null && raw !== undefined && raw !== '') cache=inspectCache(raw); }
+    catch (error) { phase='storage_error';account='';throw error; }
+    return refresh();
+  }
+  function logout() {
+    session++;account='';activeFlush=null;migrationPreview=null;phase='signed_out';
+    cache={version:1,server:emptyView(),localState:null,queue:[],conflict:null};
+  }
+  function enqueueConfirmed(operation,localState,options) {
+    ensureAccount();ensureConfirmation(options);
+    if (!object(operation) || !operationTypes.has(operation.type) || operation.type === 'import_local') throw new Error('invalid_confirmed_operation');
+    if (phase === 'conflict' || phase === 'session_expired' || cache.queue.some(item=>item.operation.type === 'delete_all')) throw new Error('resolve_sync_before_new_operation');
+    if (operation.type === 'delete_all' && cache.queue.length) throw new Error('sync_pending_before_delete');
+    if (operation.type !== 'delete_all' && !object(localState)) throw new Error('invalid_local_state');
+    const operationId=createOperationId();
+    if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(operationId) || cache.queue.some(item=>item.operationId === operationId)) throw new Error('invalid_operation_id');
+    const baseRevision=cache.server.revision+cache.queue.length;
+    if (!counter(baseRevision+1)) throw new Error('revision_exhausted');
+    const command={protocolVersion:1,schemaVersion:9,operationId,baseRevision,deletionGeneration:cache.server.deletionGeneration,confirmed:true,operation:copy(operation)};
+    persist({...cache,localState:operation.type === 'delete_all' ? null : copy(localState),queue:[...cache.queue,command]});phase='pending';
+    return status();
+  }
+  async function drain(stamp) {
+    while (current(stamp) && cache.queue.length && !cache.conflict && phase !== 'session_expired') {
+      const command=copy(cache.queue[0]);
+      try {
+        const result=await transport.write(command);
+        if (!current(stamp)) return;
+        if (result.status === 401) { phase='session_expired';return; }
+        if (result.status === 409 && validView(result.body?.current)) {
+          if (result.body.current.deletionGeneration > cache.server.deletionGeneration) {
+            persist({...cache,server:result.body.current,localState:result.body.current.state,queue:[],conflict:null});phase='remote_deleted';
+          } else { persist({...cache,conflict:result.body.current});phase='conflict'; }
+          return;
+        }
+        const expectedGeneration=command.deletionGeneration+(command.operation.type === 'delete_all' ? 1 : 0);
+        if (result.status !== 200 || !validView(result.body) || result.body.revision !== command.baseRevision+1 || result.body.deletionGeneration !== expectedGeneration) { phase='unavailable';return; }
+        const remaining=cache.queue.slice(1);
+        persist({...cache,server:result.body,queue:remaining,localState:remaining.length ? cache.localState : result.body.state});
+        phase=remaining.length ? 'pending' : 'synced';
+      } catch { if (current(stamp)) phase='offline';return; }
+    }
+    if (current(stamp) && !cache.queue.length && !cache.conflict) await refresh();
+  }
+  async function flush() {
+    ensureAccount();
+    if (activeFlush) return activeFlush;
+    const stamp=session;const task=drain(stamp);activeFlush=task;
+    try { await task;return status(); } finally { if (current(stamp)) activeFlush=null; }
+  }
+  function acceptCloudVersion(options) {
+    ensureAccount();ensureConfirmation(options);
+    if (options.discardPending !== true || !cache.conflict) throw new Error('explicit_discard_confirmation_required');
+    persist({...cache,server:cache.conflict,localState:cache.conflict.state,queue:[],conflict:null});phase='synced';
+    return status();
+  }
+  function previewMigration(state) {
+    ensureAccount();if (!object(state)) throw new Error('invalid_migration_state');
+    migrationPreview={session,state:copy(state)};return copy(migrationPreview.state);
+  }
+  function confirmMigration(preview,options) {
+    ensureAccount();ensureConfirmation(options);
+    if (cache.server.state !== null || cache.queue.length || cache.conflict || !['synced','remote_deleted'].includes(phase)) throw new Error('migration_requires_empty_synced_account');
+    if (!migrationPreview || migrationPreview.session !== session || JSON.stringify(preview) !== JSON.stringify(migrationPreview.state)) throw new Error('migration_preview_required');
+    const operationId=createOperationId();
+    if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(operationId)) throw new Error('invalid_operation_id');
+    const command={protocolVersion:1,schemaVersion:9,operationId,baseRevision:cache.server.revision,deletionGeneration:cache.server.deletionGeneration,confirmed:true,migrationApproved:true,operation:{type:'import_local',state:copy(preview)}};
+    persist({...cache,localState:copy(preview),queue:[command]});migrationPreview=null;phase='pending';return status();
+  }
+  return {activateAccount,logout,status,refresh,flush,enqueueConfirmed,acceptCloudVersion,previewMigration,confirmMigration,pendingOperations:()=>copy(cache.queue)};
+}
