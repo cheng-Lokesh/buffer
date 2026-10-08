@@ -72,17 +72,21 @@ test('website and generated mini sync client share one implementation',async()=>
 });
 test('late acknowledgement cannot resurrect state after remote deletion cleared the queue',async()=>{
   const f=await fixture();let finish;
+  const writes=[];let watch=false;const save=f.options.storage.setItem;f.options.storage.setItem=(key,text)=>{if(watch)writes.push(JSON.parse(text));save(key,text);};
   f.options.transport.write=()=>new Promise(resolve=>{finish=resolve;});
   await f.client.activateAccount('a');f.client.enqueueConfirmed({type:'confirm_reality',amount:20},{amount:20},{confirmed:true});
-  const pending=f.client.flush();f.setRemote(view(2,null,1));await f.client.refresh();
+  const pending=f.client.flush();f.setRemote(view(2,null,1));await f.client.refresh();watch=true;
   finish({status:200,body:view(1,{amount:20},0)});await pending;
   assert.equal(f.client.status().deletionGeneration,1);assert.equal(f.client.status().state,null);assert.equal(f.client.status().pendingCount,0);
+  assert.ok(writes.every(value=>value.localState===null),'deleted state must never be persisted even transiently');
 });
 test('late acknowledgement cannot overwrite explicitly adopted cloud conflict state',async()=>{
   const f=await fixture();let finish;f.options.transport.write=()=>new Promise(resolve=>{finish=resolve;});
+  const writes=[];let watch=false;const save=f.options.storage.setItem;f.options.storage.setItem=(key,text)=>{if(watch)writes.push(JSON.parse(text));save(key,text);};
   await f.client.activateAccount('a');f.client.enqueueConfirmed({type:'confirm_reality',amount:20},{amount:20},{confirmed:true});
   const pending=f.client.flush();f.setRemote(view(3,{amount:70}));await f.client.refresh();
-  f.client.acceptCloudVersion({confirmed:true,discardPending:true});
+  f.client.acceptCloudVersion({confirmed:true,discardPending:true});watch=true;
   finish({status:200,body:view(1,{amount:20})});await pending;
   assert.equal(f.client.status().revision,3);assert.deepEqual(f.client.status().state,{amount:70});
+  assert.ok(writes.every(value=>value.localState.amount===70),'discarded pending state must never overwrite the adopted cloud version');
 });
