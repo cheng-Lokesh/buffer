@@ -34,3 +34,10 @@ test('untrusted network context never reaches the provider',async()=>{
   const handle=await module.createWechatLoginRuntime({...config,pool,fetchImpl:async()=>{called=true;throw new Error('must not call');}});
   assert.equal((await handle(request(),{})).status,429);assert.equal(called,false);
 });
+test('runtime carries only an explicitly selected CloudBase RSA1024 policy to the signer',async()=>{
+  const legacy=generateKeyPairSync('rsa',{modulusLength:1024});
+  const options={...config,pool,credentials:{...config.credentials,private_key:legacy.privateKey.export({type:'pkcs1',format:'pem'})},fetchImpl:async()=>new Response(JSON.stringify({openid:'fixture_openid'}))};
+  await assert.rejects(module.createWechatLoginRuntime(options),/cloudbase_signer_config_invalid/);
+  const handle=await module.createWechatLoginRuntime({...options,keyPolicy:'cloudbase-rsa1024'});
+  assert.equal((await handle(request(),{remoteAddress:'::1'})).status,200);
+});
