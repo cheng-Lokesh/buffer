@@ -7,12 +7,18 @@ const envId='test-environment';
 const keys=generateKeyPairSync('rsa',{modulusLength:2048,privateKeyEncoding:{type:'pkcs8',format:'pem'},publicKeyEncoding:{type:'spki',format:'pem'}});
 const credentials={env_id:envId,private_key_id:'test-key',private_key:keys.privateKey};
 
-test('official SDK generates a verifiable RSA ticket offline, not a mock string',async()=>{
+test('CloudBase protocol generates a verifiable RSA ticket offline, not a mock string',async()=>{
   const sign=await create({envId,credentials});
   const result=await sign('wx_12345678901234567890123456789');
   assert.ok(result.startsWith('test-key/@@/'));
   const [header,payload,signature]=result.split('/@@/')[1].split('.');
   assert.equal(JSON.parse(Buffer.from(header,'base64url')).alg,'RS256');
+  const claims=JSON.parse(Buffer.from(payload,'base64url'));
+  assert.equal(claims.env,envId);
+  assert.equal(claims.uid,'wx_12345678901234567890123456789');
+  assert.equal(claims.exp-claims.iat,5*60*1000);
+  assert.equal(claims.expire,claims.exp);
+  assert.equal(claims.refresh,60*1000);
   assert.ok(verify('RSA-SHA256',Buffer.from(`${header}.${payload}`),createPublicKey(keys.publicKey),Buffer.from(signature,'base64url')));
   assert.ok(!result.includes(keys.privateKey));
 });
