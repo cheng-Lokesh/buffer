@@ -31,3 +31,20 @@ test('does not sign arbitrary, privileged or client-selected account IDs',async(
   const sign=await create({envId,credentials});
   for(const id of ['administrator','other-user','wx_foo',null]) await assert.rejects(sign(id),/cloudbase_signer_identity_invalid/);
 });
+
+test('official CloudBase 1024-bit key requires explicit compatibility policy and signs correctly',async()=>{
+  const legacy=generateKeyPairSync('rsa',{modulusLength:1024,privateKeyEncoding:{type:'pkcs1',format:'pem'},publicKeyEncoding:{type:'spki',format:'pem'}});
+  const config={envId,credentials:{...credentials,private_key:legacy.privateKey}};
+  await assert.rejects(create(config),/cloudbase_signer_config_invalid/);
+  const sign=await create({...config,keyPolicy:'cloudbase-rsa1024'});
+  const ticket=await sign('wx_12345678901234567890123456789');
+  const [header,payload,signature]=ticket.split('/@@/')[1].split('.');
+  assert.ok(verify('RSA-SHA256',Buffer.from(`${header}.${payload}`),createPublicKey(legacy.publicKey),Buffer.from(signature,'base64url')));
+});
+test('compatibility does not accept smaller keys, other intermediate sizes or unknown policies',async()=>{
+  for(const bits of [512,1536]) {
+    const pair=generateKeyPairSync('rsa',{modulusLength:bits,privateKeyEncoding:{type:'pkcs1',format:'pem'},publicKeyEncoding:{type:'spki',format:'pem'}});
+    await assert.rejects(create({envId,credentials:{...credentials,private_key:pair.privateKey},keyPolicy:'cloudbase-rsa1024'}),/cloudbase_signer_config_invalid/);
+  }
+  await assert.rejects(create({envId,credentials,keyPolicy:'anything'}),/cloudbase_signer_config_invalid/);
+});
