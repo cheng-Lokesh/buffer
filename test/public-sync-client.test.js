@@ -70,3 +70,19 @@ test('missing adapters and corrupt cached data fail closed rather than resetting
 test('website and generated mini sync client share one implementation',async()=>{
   const web=await load();const mini=require('../miniprogram/core/account-sync-client.js');assert.equal(typeof mini.createAccountSyncClient,typeof web.createAccountSyncClient);
 });
+test('late acknowledgement cannot resurrect state after remote deletion cleared the queue',async()=>{
+  const f=await fixture();let finish;
+  f.options.transport.write=()=>new Promise(resolve=>{finish=resolve;});
+  await f.client.activateAccount('a');f.client.enqueueConfirmed({type:'confirm_reality',amount:20},{amount:20},{confirmed:true});
+  const pending=f.client.flush();f.setRemote(view(2,null,1));await f.client.refresh();
+  finish({status:200,body:view(1,{amount:20},0)});await pending;
+  assert.equal(f.client.status().deletionGeneration,1);assert.equal(f.client.status().state,null);assert.equal(f.client.status().pendingCount,0);
+});
+test('late acknowledgement cannot overwrite explicitly adopted cloud conflict state',async()=>{
+  const f=await fixture();let finish;f.options.transport.write=()=>new Promise(resolve=>{finish=resolve;});
+  await f.client.activateAccount('a');f.client.enqueueConfirmed({type:'confirm_reality',amount:20},{amount:20},{confirmed:true});
+  const pending=f.client.flush();f.setRemote(view(3,{amount:70}));await f.client.refresh();
+  f.client.acceptCloudVersion({confirmed:true,discardPending:true});
+  finish({status:200,body:view(1,{amount:20})});await pending;
+  assert.equal(f.client.status().revision,3);assert.deepEqual(f.client.status().state,{amount:70});
+});
