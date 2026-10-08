@@ -10,6 +10,7 @@
     "preview": "node server/site-server.mjs",
     "verify:miniprogram": "node scripts/verify-miniprogram-release.cjs",
     "test:miniprogram": "node --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs",
+    "test:public-sync": "node scripts/build-mini-shared.mjs --check && node --test test/public-account-sync.test.js test/public-sync-client.test.js test/public-forecast-lookup.test.js test/public-mini-lookup.test.cjs",
     "test:miniprogram:coverage": "node --experimental-test-coverage --test-coverage-include=miniprogram/core/*.js --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=90 --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs test/v8-platform-parity.test.cjs test/v12-miniprogram-reality-capture.test.cjs",
     "test:v12:red": "node --test test/v12-reality-capture.test.js test/v12-reality-parser.test.js test/v12-ui-contract.test.cjs",
     "test:v12:core": "node --test test/v12-reality-capture.test.js test/v12-reality-parser.test.js test/v12-backup-contract.test.js",

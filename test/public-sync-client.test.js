@@ -1,8 +1,10 @@
-import test from 'node:test';
+import nodeTest from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const load=()=>import('../src/account-sync-client.js');
+for (const platform of ['web','mini']) {
+const test=(name,body)=>nodeTest(`[${platform}] ${name}`,body);
+const load=async()=>platform === 'web' ? import('../src/account-sync-client.js') : require('../miniprogram/core/account-sync-client.js');
 const view=(revision=0,state=null,generation=0)=>({protocolVersion:1,schemaVersion:9,revision,deletionGeneration:generation,state});
 async function fixture() {
   const {createAccountSyncClient}=await load();const storage=new Map();let ids=0;let remote=view();let offline=false;let sends=0;
@@ -90,3 +92,4 @@ test('late acknowledgement cannot overwrite explicitly adopted cloud conflict st
   assert.equal(f.client.status().revision,3);assert.deepEqual(f.client.status().state,{amount:70});
   assert.ok(writes.every(value=>value.localState.amount===70),'discarded pending state must never overwrite the adopted cloud version');
 });
+}
