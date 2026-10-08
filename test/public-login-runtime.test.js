@@ -41,3 +41,14 @@ test('runtime carries only an explicitly selected CloudBase RSA1024 policy to th
   const handle=await module.createWechatLoginRuntime({...options,keyPolicy:'cloudbase-rsa1024'});
   assert.equal((await handle(request(),{remoteAddress:'::1'})).status,200);
 });
+
+test('runtime supports dedicated-identity RPC without direct PG or privileged API key',async()=>{
+  const token=`e30.${Buffer.from(JSON.stringify({role:'authenticated',sub:'fixture-service',aud:envId,exp:Date.now()/1000+3600})).toString('base64url')}.fixture`;
+  let rpcCalls=0;let providerCalls=0;
+  const handle=await module.createWechatLoginRuntime({...config,rpcGuard:{serviceUserId:'fixture-service',getAccessToken:async()=>token,fetchImpl:async()=>{rpcCalls++;return new Response('true');}},fetchImpl:async()=>{providerCalls++;return new Response(JSON.stringify({openid:'fixture_openid'}));}});
+  assert.equal((await handle(request(),{remoteAddress:'::1'})).status,200);
+  assert.equal(rpcCalls,2);assert.equal(providerCalls,1);
+});
+test('runtime refuses ambiguous persistence paths instead of silently choosing one',async()=>{
+  await assert.rejects(module.createWechatLoginRuntime({...config,pool,rpcGuard:{}}),/login_runtime_config_invalid/);
+});
