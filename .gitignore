@@ -29,3 +29,5 @@ artifacts/
 # Server credentials, never shipped to browser / WeChat / Git
 .secrets/
 tcb_custom_login*.json
+dist-cloud-login/
+dist-cloud-login.zip
