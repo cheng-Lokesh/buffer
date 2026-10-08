@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {generateKeyPairSync} from 'node:crypto';
+import {createWechatLoginRuntime} from '../server/wechat-login-runtime.js';
 const module=await import('../server/wechat-login-http.js').catch(()=>null);
 const origin='https://fixture.example';
 const create=extra=>{assert.ok(module,'HTTP login host missing');return module.createWechatLoginHttpServer({allowedOrigin:origin,handleLogin:async()=>Response.json({ticket:'fixture-only-ticket'}),...extra});};
@@ -30,5 +32,15 @@ test('preflight allowed only for explicit JSON POST; native client needs no Orig
 test('provider exception and malformed response never expose details',async()=>{
   for(const handler of [async()=>{throw Error('private-secret');},async()=>null])await run(create({handleLogin:handler}),async base=>{
     const r=await fetch(base+'/api/auth/wechat',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(r.status,503);assert.deepEqual(await r.json(),{code:'login_unavailable'});
+  });
+});
+test('HTTP host composes full login runtime with cryptographic signing (provider fixtures)',async()=>{
+  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
+  const token=`e30.${Buffer.from(JSON.stringify({role:'authenticated',sub:'fixture-service',aud:'fixture-env',exp:Date.now()/1000+3600})).toString('base64url')}.fixture`;
+  const calls=[];
+  const handleLogin=await createWechatLoginRuntime({appId:'wxc7f8da28fa006f64',envId:'fixture-env',appSecret:'fixture-secret',hashSecret:'fixture-hash'.repeat(4),credentials:{env_id:'fixture-env',private_key_id:'fixture-key',private_key:privateKey.export({type:'pkcs8',format:'pem'})},rpcGuard:{serviceUserId:'fixture-service',getAccessToken:async()=>token,fetchImpl:async(url)=>{calls.push(url);return Response.json(true);}},fetchImpl:async()=>{calls.push('fixture-wechat');return Response.json({openid:'fixture-only-openid'});}});
+  await run(create({handleLogin}),async base=>{
+    const response=await fetch(base+'/api/auth/wechat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:'fixture-only-code'})});
+    assert.equal(response.status,200);const body=await response.json();assert.deepEqual(Object.keys(body),['ticket']);assert.ok(!body.ticket.includes('fixture-only-openid'));assert.equal(calls.length,3);
   });
 });
