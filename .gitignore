@@ -25,3 +25,7 @@ pnpm-debug.log*
 output/
 artifacts/
 .playwright-cli/
+
+# Server credentials, never shipped to browser / WeChat / Git
+.secrets/
+tcb_custom_login*.json

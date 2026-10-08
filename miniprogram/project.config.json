@@ -2,7 +2,7 @@
   "description": "缓冲区微信小程序",
   "miniprogramRoot": "./",
   "compileType": "miniprogram",
-  "appid": "touristappid",
+  "appid": "wxc7f8da28fa006f64",
   "projectname": "buffer-zone",
   "setting": {
     "es6": true,
