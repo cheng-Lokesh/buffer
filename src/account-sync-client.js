@@ -80,6 +80,7 @@ export function createAccountSyncClient({storage,transport,createOperationId} = 
       try {
         const result=await transport.write(command);
         if (!current(stamp)) return;
+        if (cache.conflict || cache.queue[0]?.operationId !== command.operationId || cache.server.deletionGeneration !== command.deletionGeneration) return;
         if (result.status === 401) { phase='session_expired';return; }
         if (result.status === 409 && validView(result.body?.current)) {
           if (result.body.current.deletionGeneration > cache.server.deletionGeneration) {
