@@ -10,7 +10,7 @@ function fixture({cancel=false,clipboardFails=false,switchAccount=false,phase='c
   vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Component:value=>definition=value,getApp:()=>app,require:id=>id==='../../utils/account-store'?{exportText:()=>JSON.stringify(sync.state)}:nativeRequire(id),wx:{
     showModal:options=>{modals.push(options);if(switchAccount&&modals.length===2)generation++;options.success({confirm:!cancel});},
     setClipboardData:options=>{clips++;clipboardFails?options.fail():options.success();},showToast:options=>toasts.push(options.title)
-  }});
+  }},{filename});
   const component={...definition.methods,data:structuredClone(definition.data),setData(value){Object.assign(this.data,value);}};
   return {component,modals,toasts,get adopted(){return adopted;},get retries(){return retries;},get clips(){return clips;}};
 }

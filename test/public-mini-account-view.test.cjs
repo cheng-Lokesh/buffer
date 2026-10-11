@@ -12,7 +12,7 @@ test('account view reset clears drafts, predictions and financial display before
 test('real account component notifies active page after approved login and logout, not after cancellation',async()=>{
   let definition,phase='signed_out',resets=0,confirm=true;
   const app={accountStatus:()=>({phase}),loginWechat:async()=>{phase='signed_in';},logoutAccount:()=>{phase='signed_out';}};
-  vm.runInNewContext(fs.readFileSync('miniprogram/components/account-entry/index.js','utf8'),{Component:value=>definition=value,getApp:()=>app,getCurrentPages:()=>[{onAccountChange:()=>resets++}],wx:{showModal:opts=>opts.success({confirm})}});
+  vm.runInNewContext(fs.readFileSync('miniprogram/components/account-entry/index.js','utf8'),{Component:value=>definition=value,getApp:()=>app,getCurrentPages:()=>[{onAccountChange:()=>resets++}],wx:{showModal:opts=>opts.success({confirm})}},{filename:require('node:path').resolve('miniprogram/components/account-entry/index.js')});
   const component={...definition.methods,data:structuredClone(definition.data),setData(value){Object.assign(this.data,value);}};
   await component.activate();assert.equal(resets,1);await component.activate();assert.equal(resets,2);confirm=false;await component.activate();assert.equal(resets,2);
 });
@@ -35,7 +35,7 @@ test('visible pages subscribe once, refresh same-account facts and clear drafts 
 test('account entry observes real sync phases and stops listening when hidden',()=>{
   let definition,callback,phase='synced',detaches=0;
   const app={accountStatus:()=>({phase:'signed_in'}),accountSyncStatus:()=>({phase,pendingCount:phase==='offline'?2:0}),subscribeAccountSync(fn){callback=fn;return ()=>{callback=null;detaches++;};}};
-  vm.runInNewContext(fs.readFileSync('miniprogram/components/account-entry/index.js','utf8'),{Component:value=>definition=value,getApp:()=>app});
+  vm.runInNewContext(fs.readFileSync('miniprogram/components/account-entry/index.js','utf8'),{Component:value=>definition=value,getApp:()=>app},{filename:require('node:path').resolve('miniprogram/components/account-entry/index.js')});
   const component={...definition.methods,data:structuredClone(definition.data),setData(value){Object.assign(this.data,value);}};
   definition.lifetimes.attached.call(component);assert.equal(component.data.message,'已同步');
   phase='offline';callback();assert.match(component.data.message,/2.*待同步/);
