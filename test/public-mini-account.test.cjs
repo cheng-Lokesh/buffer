@@ -14,7 +14,8 @@ function appFixture({failed=false}={}) {
       else if(options.url.endsWith('/user/me'))options.success({statusCode:200,data:{sub:'fixture-account'}});
       else options.success({statusCode:200,data:{sub:'fixture-account',access_token:'fixture-access',refresh_token:'fixture-refresh',expires_in:120}});
     },getStorageSync(key){assert.ok(key.startsWith('buffer-zone.account.sync.v1:'));return '';},setStorageSync(key,value){assert.ok(key.startsWith('buffer-zone.account.sync.v1:'));assert.ok(!value.includes('fixture-access'));}};
-  vm.runInNewContext(fs.readFileSync('miniprogram/app.js','utf8'),{App:value=>app=value,wx,require:miniRequire});
+  // Timer execution is covered by the lifecycle suite's deterministic scheduler.
+  vm.runInNewContext(fs.readFileSync('miniprogram/app.js','utf8'),{App:value=>app=value,wx,require:miniRequire,setTimeout:()=>1,clearTimeout:()=>{}});
   return {app,calls};
 }
 test('application loads signed out with no hidden request, storage access or legacy upload',()=>{
