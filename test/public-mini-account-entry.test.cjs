@@ -29,7 +29,8 @@ test('entry starts locally, requires explicit login confirmation, and never disp
   assert.ok(!JSON.stringify(f.component.data).includes('fixture-private-id'));
   const g=fixture();await g.component.activate();assert.equal(g.logins,1);
   assert.equal(g.component.data.label,'微信已登录');assert.equal(g.component.data.busy,false);
-  assert.equal(g.component.data.message,'本机数据未上传');
+  // This fixture deliberately has no sync provider; do not invent a synced state.
+  assert.equal(g.component.data.message,'同步尚未连接');
   await g.component.activate();assert.equal(g.logouts,1);assert.equal(g.component.data.label,'微信登录');
 });
 test('failures preserve local-only state with actionable sanitized retry and stable loading',async()=>{
