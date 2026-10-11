@@ -29,3 +29,17 @@ test('explicit page confirmations enqueue canonical operations rather than touch
 test('old local restore/delete prompts cannot authorize cloud overwrite or deletion',async()=>{
   const f=fixture();assert.equal((await f.store.restoreState({}, {confirmed:true})).ok,false);assert.equal((await f.store.clear()).ok,false);assert.equal(f.writes,0);
 });
+test('expired, malformed and failing account responses never substitute old local facts',async()=>{
+  const f=fixture();f.app.accountSyncStatus=()=>({phase:'synced',state:{schemaVersion:99}});assert.equal(f.store.load().storageError,true);
+  assert.equal((await f.store.recordCash({balance:1,reserve:0,daily:1})).ok,false);
+  f.setPhase('session_expired');assert.equal((await f.store.captureReality([])).ok,false);
+  assert.equal((await f.store.recordV8Event({type:'unexpected',amount:1})).ok,false);
+  assert.equal((await f.store.recordV8Event({type:'expense',amount:-1})).ok,false);
+  assert.equal((await f.store.recordCash({balance:true,reserve:0,daily:1})).ok,false);
+  assert.equal(f.writes,0);assert.equal(f.reads,0);
+});
+test('explicit local mode keeps its existing backup/delete and capture semantics',async()=>{
+  const f=fixture();f.setPhase('signed_out');await f.store.restoreState({}, {confirmed:true});await f.store.clear();await f.store.captureReality([]);await f.store.recordV8Event({});assert.equal(f.writes,4);
+  const {createMiniAccountStore}=require('../miniprogram/utils/account-store');let calls=0;
+  const noAccount=createMiniAccountStore({local:{load:()=>{calls++;return {};}}});noAccount.load();assert.equal(calls,1);
+});
