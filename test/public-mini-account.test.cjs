@@ -10,9 +10,10 @@ function appFixture({failed=false}={}) {
     if(failed)options.fail({errMsg:'private failure'});else options.success({code:'fixture-code'});},
     request(options){calls.push({kind:'request',url:options.url,timeout:options.timeout});
       if(options.url.endsWith('/api/auth/wechat'))options.success({statusCode:200,data:{ticket:'ticket'}});
+      else if(options.url.endsWith('/api/account/sync'))options.success({statusCode:404,data:{error:'not_deployed'}});
       else if(options.url.endsWith('/user/me'))options.success({statusCode:200,data:{sub:'fixture-account'}});
       else options.success({statusCode:200,data:{sub:'fixture-account',access_token:'fixture-access',refresh_token:'fixture-refresh',expires_in:120}});
-    },getStorageSync(){throw Error('must not read legacy data');},setStorageSync(){throw Error('must not persist token');}};
+    },getStorageSync(key){assert.ok(key.startsWith('buffer-zone.account.sync.v1:'));return '';},setStorageSync(key,value){assert.ok(key.startsWith('buffer-zone.account.sync.v1:'));assert.ok(!value.includes('fixture-access'));}};
   vm.runInNewContext(fs.readFileSync('miniprogram/app.js','utf8'),{App:value=>app=value,wx,require:miniRequire});
   return {app,calls};
 }
@@ -23,7 +24,8 @@ test('application loads signed out with no hidden request, storage access or leg
 });
 test('explicit login uses native wx transport and logout clears session',async()=>{
   const f=appFixture();const result=await f.app.loginWechat();assert.equal(result.phase,'signed_in');
-  assert.equal(f.calls.length,4);assert.ok(f.calls.every(call=>call.timeout===10000));
+  assert.equal(f.calls.length,5);assert.ok(f.calls.every(call=>call.timeout===10000));
+  assert.equal(f.app.accountSyncStatus().phase,'unavailable');
   assert.equal(await f.app.getAccountAccessToken(),'fixture-access');
   f.app.logoutAccount();assert.equal(f.app.accountStatus().phase,'signed_out');
   await assert.rejects(f.app.getAccountAccessToken(),/authentication_required/);
