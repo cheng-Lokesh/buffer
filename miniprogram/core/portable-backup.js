@@ -3,6 +3,7 @@ const { normalizeCashReality } = require('./v8-cash-reality');
 const { buildProductStateEnvelope } = require('./state-envelope');
 const { validateAccountState } = require('./account-confirmation');
 const { shanghaiDate } = require('./forecast-lookup');
+const { adaptLegacyCashToV8Reality } = require('./v8-legacy-adapter');
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -78,6 +79,22 @@ function webState(value) {
     for(const [key,type,id] of [['balance','balance','balance'],['reserve','reserve','reserve'],['daily','daily_floor','daily-floor']]) {
       if(legacyCash[key]==='')continue;
       conditions.push({id,type,amount:legacyCash[key],status:'confirmed',source:'user_confirmed',confirmedAt,...(type==='daily_floor'?{frequency:'daily'}:{})});
+    }
+    if(value.cashflow?.mode==='full') {
+      const section=value.cashflow.full;
+      if(!record(section))fail();
+      for(const key of ['expenses','incomes']) {
+        const items=section[key] || [];
+        if(!Array.isArray(items)||items.length>5000)fail();
+        for(const item of items) {
+          if(!record(item)||!String(item.id || ''))fail(); amount(item.amount);
+          const when=key==='expenses'?item.nextDate:item.date;
+          if(typeof when!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(when)||!Number.isFinite(Date.parse(`${when}T00:00:00Z`))||new Date(`${when}T00:00:00Z`).toISOString().slice(0,10)!==when)fail();
+          if(key==='expenses' && item.frequency && !['daily','weekly','monthly','once'].includes(item.frequency))fail();
+        }
+      }
+      const migrated=adaptLegacyCashToV8Reality(value,{asOf:section.asOf || (confirmedAt?shanghaiDate(confirmedAt):'1970-01-01'),confirmedAt,confirmed:true});
+      conditions.push(...migrated.conditions.filter(item=>!['balance','reserve','daily_floor'].includes(item.type)));
     }
     envelope.cashReality=normalizeCashReality({conditions});
   }
