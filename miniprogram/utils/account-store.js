@@ -1,6 +1,6 @@
 const localStore=require('./store');
 const {emptyState,normalizeState}=require('../core/state');
-const {portableToMini}=require('../core/portable-backup');
+const {portableToMini,buildPortableBackup}=require('../core/portable-backup');
 
 // Account mode never falls back to another storage scope when a cloud read fails.
 // Existing device data stays accessible in explicit signed-out/local mode.
@@ -41,10 +41,38 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
       return await captureReality([{type:draft.type==='income'?'one_off_income':draft.type==='expense'?'one_off_expense':'balance_confirmation',amount:number(draft.amount),occurredAt:draft.occurredAt}],{provenance:'precise_edit'});
     }catch{return failure('请检查金额和日期');}
   }
+  async function addV8CashCondition(input){
+    if(localMode())return local.addV8CashCondition(input);
+    try{
+      let candidate;
+      if(['recurring_income','recurring_expense'].includes(input.type)){
+        candidate={type:input.type,name:input.name|| (input.type==='recurring_income'?'固定收入':'固定支出'),amount:number(input.amount),frequency:input.frequency,startDate:input.nextOccurrence,
+          ...(input.type==='recurring_expense'?{includedInDailyFloor:input.includedInDailyFloor??false}:{})};
+      }else if(input.type==='known_event'&&['income','expense'].includes(input.eventKind)){
+        candidate={type:input.eventKind==='income'?'known_future_income':'known_future_expense',name:input.name|| (input.eventKind==='income'?'未来收入':'未来支出'),amount:number(input.amount),occurredAt:input.nextOccurrence};
+      }else throw Error();
+      return await captureReality([candidate],{provenance:'precise_edit'});
+    }catch{return failure('请检查条件类型、金额和日期');}
+  }
+  async function setV8Condition(conditionId,patch){
+    return localMode()?local.setV8Condition(conditionId,patch):commit({action:'edit_condition',conditionId,patch});
+  }
+  async function saveV8Scenario(patch){
+    return localMode()?local.saveV8Scenario(patch):commit({action:'save_scenario',patch});
+  }
+  function exportText(){
+    if(localMode())return local.exportText();
+    if(app().accountStatus().phase!=='signed_in')return null;
+    try{
+      const state=app().accountSyncStatus().state;
+      // An empty account has an honest empty backup, never the legacy device data.
+      return JSON.stringify(buildPortableBackup(state||emptyState(),new Date(now()).toISOString()));
+    }catch{return null;}
+  }
   // Old dialogs only mention local replacement/deletion; they are not consent
   // for account-wide changes. Dedicated cloud previews/prompts must call App APIs.
   async function restoreState(value,options){return localMode()?local.restoreState(value,options):failure('账号备份需要先预览并确认上传范围，原数据未改动');}
   async function clear(){return localMode()?local.clear():failure('请使用账号数据删除确认，原数据未改动');}
-  return {load,recordCash,captureReality,recordV8Event,restoreState,clear};
+  return {load,recordCash,captureReality,recordV8Event,addV8CashCondition,setV8Condition,saveV8Scenario,exportText,restoreState,clear};
 }
 module.exports={createMiniAccountStore};
