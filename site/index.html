@@ -476,6 +476,8 @@
   /* 主按钮/次按钮统一 hover */
   .btn-primary:hover { filter:brightness(1.12); }
   .btn-ghost:hover { color:#c4d3ef; }
+  .site-account-button { flex:0 0 auto; height:44px; margin-top:12px; padding:0 10px; font:inherit; font-size:14px; color:#c4d3ef; border:1px solid rgba(125,165,255,.22); border-radius:8px; background:rgba(16,26,56,.5); cursor:pointer; }
+  .site-account-button:focus-visible { outline:2px solid #73b8ff; outline-offset:2px; }
   /* 图表主线入场描画（JS 注入长度；reduced-motion 时跳过） */
   .drawline { animation:drawIn 1.1s ease-out forwards; }
   @keyframes drawIn { to { stroke-dashoffset:0; } }
@@ -489,6 +491,7 @@
     #uiwrap > aside { width:100%; height:76px; padding:8px; flex-direction:row; align-items:center;
       border-right:0; border-bottom:1px solid rgba(125,165,255,.16); }
     .logo { font-size:20px; }
+    .site-account-button { margin:0; width:84px; padding:0 4px; font-size:14px; }
     .logo-sub, .side-slogan, .side-card, .side-en, .side-buffer { display:none; }
     nav { flex:1; margin:0 0 0 8px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
     .nav-item { min-width:0; min-height:52px; padding:6px 3px; flex-direction:column; justify-content:center; gap:3px; text-align:center; }
@@ -1392,7 +1395,7 @@
   <aside>
     <div class="logo">Buffer<sup>®</sup></div>
     <div class="logo-sub">缓冲区</div>
-    <button type="button" class="btn-ghost" data-account-entry style="min-height:44px;font-size:14px;margin-top:12px">微信登录</button>
+    <button type="button" class="site-account-button" data-account-entry>微信登录</button>
     <div class="side-slogan">在不确定的世界里<br>为重要的事，<br>保留可能。</div>
 
     <nav aria-label="主要空间">
