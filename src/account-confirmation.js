@@ -31,8 +31,11 @@ export function validateAccountState(value) {
   if (!record(value) || value.schemaVersion !== 9) invalid();
   const envelope = buildProductStateEnvelope(value);
   if (canonical(envelope) !== canonical(value)) invalid();
-  for (const key of ['records','missions','jobs','projects','progressLogs','weeklyReviews','phaseArchives','actionThreads','pilots','reports']) {
+  for (const key of ['records','missions','jobs','projects','progressLogs','weeklyReviews','phaseArchives','pilots','reports']) {
     if (Object.hasOwn(value,key) && !Array.isArray(value[key])) invalid();
+  }
+  for (const key of ['actionThreads','phaseState','longitudinalEvidence','v5Experience']) {
+    if (Object.hasOwn(value,key) && !record(value[key])) invalid();
   }
   if (!record(value.cashReality) || canonical(normalizeCashReality(value.cashReality)) !== canonical(value.cashReality)) invalid();
   for (const key of ['conditions','events','occurrenceResolutions','scenarioDrafts','realitySnapshots','forecastSnapshots']) {

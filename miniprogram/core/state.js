@@ -50,7 +50,7 @@ function normalizeChange(item, index = 0) {
       after, note: String(item.note || '').trim().slice(0, 120)
     };
   }
-  const rawDelta = Number(item.cashDelta);
+  const rawDelta = Number(item.legacyDelta ?? item.cashDelta);
   if (!Number.isFinite(rawDelta)) return null;
   return {
     id: String(item.id || `legacy-${index + 1}`), occurredAt,

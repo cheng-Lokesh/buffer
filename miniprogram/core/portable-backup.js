@@ -111,7 +111,8 @@ function buildPortableBackup(value,exportedAt) {
   const payload={...base,cash:{...base.cash,...nativeCash},cashReality:reality,visualSkinId:typeof value.skinId==='string'?value.skinId:base.visualSkinId || 'ink-contours'};
   if(confirmedAt)payload.cashflowConfirmation={...base.cashflowConfirmation,confirmedAt};
   const previous=base.legacyArchive?.payload?.miniHistory;
-  if(changes.length && JSON.stringify(previous?.changes)!==JSON.stringify(changes)) {
+  const webRecordsOnly=changes.every(item=>base.records?.some(old=>String(old.id)===item.id && old.cashDelta===item.legacyDelta && `${old.date}T12:00:00.000Z`===item.occurredAt));
+  if(changes.length && !webRecordsOnly && JSON.stringify(previous?.changes)!==JSON.stringify(changes)) {
     payload.legacyArchive={...base.legacyArchive,version:1,payload:{...base.legacyArchive?.payload,miniHistory:{version:value.version,confirmedAt:value.confirmedAt ?? null,changes}}};
   }
   return {...validateAccountState(payload),...(exportedAt?{exportedAt:stamp(exportedAt)}:{})};
