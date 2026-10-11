@@ -59,3 +59,7 @@ test('account export contains only own envelope and does not substitute legacy b
   const backup=JSON.parse(f.store.exportText());assert.equal(backup.schemaVersion,9);assert.equal(backup.cash.balance,9000);assert.equal(f.reads,0);
   f.app.accountSyncStatus=()=>({state:{schemaVersion:99}});assert.equal(f.store.exportText(),null);assert.equal(f.reads,0);
 });
+test('logout while confirmation is in flight does not acknowledge a local-mode success',async()=>{
+  const f=fixture();f.app.confirmAccountOperation=async()=>{f.setPhase('signed_out');return {phase:'signed_out',state:null};};
+  assert.equal((await f.store.recordCash({balance:1,reserve:0,daily:1})).ok,false);assert.equal(f.reads,0);
+});
