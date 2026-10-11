@@ -44,7 +44,7 @@ App({
   previewAccountMigration(backup){return currentController().previewMigration(backup);},
   confirmAccountMigration(preview,options){return currentController().confirmMigration(preview,options);},
   deleteAccountData(options){return currentController().deleteData(options);},
-  acceptCloudAccountVersion(options){return currentController().acceptCloudVersion(options);},
+  acceptCloudAccountVersion(options){const result=currentController().acceptCloudVersion(options);syncLoop.start();return result;},
   getAccountAccessToken(){return currentAccount().getAccessToken();},
   logoutAccount(){syncLoop.stop();viewGeneration++;loginTask=null;if(controller)controller.logout();else if(account)account.logout();}
 });
