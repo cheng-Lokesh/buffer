@@ -2,19 +2,20 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-function fixture({confirm=true,fail=false}={}) {
-  let definition;let phase='signed_out',logins=0,logouts=0;
+const path=require('node:path');
+function fixture({confirm=true,fail=false,modalFail=false,deferModal=false}={}) {
+  let definition;let phase='signed_out',logins=0,logouts=0,modals=0,dialog;
   const app={accountStatus:()=>({phase,accountId:phase==='signed_in'?'fixture-private-id':null}),
     loginWechat:async()=>{logins++;if(fail)throw Error('private token');phase='signed_in';},
     logoutAccount:()=>{logouts++;phase='signed_out';}};
   vm.runInNewContext(fs.readFileSync('miniprogram/components/account-entry/index.js','utf8'),{
     Component:value=>definition=value,getApp:()=>app,
-    wx:{showModal:options=>options.success({confirm})}
-  });
+    wx:{showModal:options=>{modals++;dialog=options;if(!deferModal)modalFail?options.fail():options.success({confirm});}}
+  },{filename:path.resolve('miniprogram/components/account-entry/index.js')});
   const component={...definition.methods,data:structuredClone(definition.data),
     setData(value){Object.assign(this.data,value);}};
   definition.lifetimes.attached.call(component);
-  return {component,definition,get logins(){return logins;},get logouts(){return logouts;}};
+  return {component,definition,setPhase(value){phase=value;},resolveModal(){dialog.success({confirm});},get modals(){return modals;},get logins(){return logins;},get logouts(){return logouts;}};
 }
 test('all four spaces expose one identical account component without a new navigation space',()=>{
   const config=JSON.parse(fs.readFileSync('miniprogram/app.json','utf8'));
@@ -37,4 +38,19 @@ test('failures preserve local-only state with actionable sanitized retry and sta
   assert.equal(f.component.data.message,'登录未完成，请重试');
   assert.ok(!JSON.stringify(f.component.data).includes('private token'));
   f.component.setData({busy:true});await f.component.activate();assert.equal(f.logins,1);
+});
+
+test('page visibility refreshes expired state and failed dialogs never log in',async()=>{
+  const f=fixture({modalFail:true});await f.component.activate();assert.equal(f.logins,0);
+  f.setPhase('session_expired');f.definition.pageLifetimes.show.call(f.component);
+  assert.equal(f.component.data.label,'重新登录');
+});
+
+test('repeated taps and page-show cannot stack confirmation dialogs',async()=>{
+  const f=fixture({deferModal:true});const first=f.component.activate();
+  assert.equal(f.component.data.confirming,true);
+  f.definition.pageLifetimes.show.call(f.component);
+  await f.component.activate();assert.equal(f.modals,1);
+  f.resolveModal();await first;
+  assert.equal(f.component.data.confirming,false);assert.equal(f.logins,1);
 });
