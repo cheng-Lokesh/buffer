@@ -31,3 +31,15 @@ test('visible pages subscribe once, refresh same-account facts and clear drafts 
   id='fixture-b';callback();assert.equal(page.data.draft,'');page.onHide();assert.equal(detaches,1);assert.equal(callback,null);
   page.onShow();assert.equal(subscribes,2);page.onUnload();assert.equal(detaches,2);
 });
+
+test('account entry observes real sync phases and stops listening when hidden',()=>{
+  let definition,callback,phase='synced',detaches=0;
+  const app={accountStatus:()=>({phase:'signed_in'}),accountSyncStatus:()=>({phase,pendingCount:phase==='offline'?2:0}),subscribeAccountSync(fn){callback=fn;return ()=>{callback=null;detaches++;};}};
+  vm.runInNewContext(fs.readFileSync('miniprogram/components/account-entry/index.js','utf8'),{Component:value=>definition=value,getApp:()=>app});
+  const component={...definition.methods,data:structuredClone(definition.data),setData(value){Object.assign(this.data,value);}};
+  definition.lifetimes.attached.call(component);assert.equal(component.data.message,'已同步');
+  phase='offline';callback();assert.match(component.data.message,/2.*待同步/);
+  phase='conflict';callback();assert.match(component.data.message,/冲突/);
+  definition.pageLifetimes.hide.call(component);assert.equal(detaches,1);
+  definition.pageLifetimes.show.call(component);assert.equal(typeof callback,'function');definition.lifetimes.detached.call(component);assert.equal(detaches,2);
+});
