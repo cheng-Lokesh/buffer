@@ -32,6 +32,7 @@ Page({
   },
   exportBackup() {
     const text = store.exportText();
+    if (!text) return wx.showToast({ title: '没有导出：本机数据无法读取', icon: 'none' });
     wx.setClipboardData({
       data: text,
       success: () => wx.showModal({ title: '备份已复制', content: '请把这段内容保存在只有你能访问的位置。需要恢复时，再复制回来。', showCancel: false }),
@@ -51,7 +52,7 @@ Page({
           confirmText: '确认恢复',
           success: ({ confirm }) => {
             if (!confirm) return;
-            const result = store.save(parsed.state);
+            const result = store.restoreState(parsed.state, { confirmed: true });
             if (!result.ok) return wx.showToast({ title: '恢复失败', icon: 'none' });
             this.refresh();
             wx.showToast({ title: '已恢复', icon: 'success' });
