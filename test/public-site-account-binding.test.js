@@ -7,3 +7,9 @@ test('current site mounts the account entry and routes all confirmed writes thro
   assert.match(source,/accountEntry\.status\(\)\.auth\.phase/);
   const html=readFileSync(new URL('../site/index.src.html',import.meta.url),'utf8');assert.match(html,/data-account-entry/);
 });
+test('account entry cannot grow into a sidebar panel and has a compact mobile slot',()=>{
+  const html=readFileSync(new URL('../site/index.src.html',import.meta.url),'utf8');
+  assert.match(html,/\.site-account-button\s*\{[^}]*flex:0 0 auto/);
+  assert.match(html,/\.site-account-button\s*\{[^}]*height:44px/);
+  assert.match(html,/\.site-account-button\s*\{[^}]*margin:0;[^}]*width:84px/);
+});
