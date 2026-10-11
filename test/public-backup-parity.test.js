@@ -61,3 +61,29 @@ test('object-shaped archived context remains portable without reviving old user 
   const result=shared.preparePortableBackup(transfer.createBackup(parsed.state,stamp));assert.equal(result.ok,true);
   for(const key of ['actionThreads','phaseState','longitudinalEvidence','v5Experience'])assert.deepEqual(result.payload[key],source[key]);
 });
+test('both shared adapters handle legacy cash, unknown values, multibyte text and strict format bounds',()=>{
+  const miniShared=require('../miniprogram/core/portable-backup.js');
+  for(const adapter of [shared,miniShared]) {
+    const legacy={version:1,cash:{balance:'2000',reserve:'0',daily:'20'},confirmedAt:stamp,changes:[],skinId:'felt-islands'};
+    const built=adapter.buildPortableBackup(legacy,stamp);
+    assert.equal(built.cash.balance,2000);assert.equal(built.cashReality.conditions.length,3);assert.equal(built.exportedAt,stamp);
+    const prepared=adapter.preparePortableBackup({kind:'buffer-zone-mini-backup',schemaVersion:1,state:legacy});assert.equal(prepared.ok,true);
+    const nativeView=adapter.portableToMini(prepared.payload);assert.equal(nativeView.cash.daily,20);assert.equal(nativeView.skinId,'felt-islands');
+    const empty=adapter.buildPortableBackup({version:2,cash:{balance:'',reserve:'',daily:''},changes:[]});assert.equal(empty.cashReality.conditions.length,0);
+    const oldWeb=adapter.preparePortableBackup({schemaVersion:1,cash:{balance:100,reserve:0,daily:10},cashflowConfirmation:{confirmedAt:stamp},records:[]});assert.equal(oldWeb.ok,true);
+    assert.equal(adapter.buildPortableBackup({...fixture(),candidates:[{type:'unknown'}]},stamp).schemaVersion,9);
+    const textFixture={...fixture(),legacyArchive:{version:1,payload:{note:'é星🌌'}}};assert.equal(adapter.preparePortableBackup(textFixture).ok,true);
+    const invalids=[{...fixture(),schemaVersion:0},{...fixture(),cash:null},{...fixture(),cashReality:{...fixture().cashReality,events:{bad:true}}},
+      {kind:'buffer-zone-mini-backup',schemaVersion:2,state:legacy},{kind:'buffer-zone-mini-backup',schemaVersion:1,state:legacy,token:'no'},
+      {kind:'buffer-zone-mini-backup',schemaVersion:1,state:{...legacy,confirmedAt:'bad'}},
+      {kind:'buffer-zone-mini-backup',schemaVersion:1,state:{...legacy,cash:{balance:-1,reserve:0,daily:20}}},
+      {kind:'buffer-zone-mini-backup',schemaVersion:1,state:{...legacy,changes:[{id:'bad',occurredAt:stamp}]}},
+      {kind:'buffer-zone-mini-backup',schemaVersion:1,state:{...legacy,changes:[{id:'bad',occurredAt:'invalid',after:legacy.cash}]}},
+      {kind:'buffer-zone-mini-backup',schemaVersion:1,state:{...legacy,cash:{balance:1.234,reserve:0,daily:20}}},
+      {...fixture(),legacyArchive:{version:1,payload:{note:'星'.repeat(3500000)}}}];
+    for(const [index,input] of invalids.entries())assert.equal(adapter.preparePortableBackup(input).ok,false,`invalid fixture ${index}`);
+    const original=native.applyCashChange(native.emptyState(),{balance:2000,reserve:100,daily:20},stamp,'fixture-native-before').state;
+    const roundtrip=adapter.portableToMini(adapter.preparePortableBackup({kind:'buffer-zone-mini-backup',schemaVersion:1,state:original}).payload);
+    assert.deepEqual(roundtrip.changes,original.changes);
+  }
+});
