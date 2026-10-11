@@ -1,19 +1,22 @@
 const localStore=require('./store');
 const {emptyState,normalizeState}=require('../core/state');
 const {portableToMini,buildPortableBackup}=require('../core/portable-backup');
+const {SKINS}=require('../core/skins');
 
 // Account mode never falls back to another storage scope when a cloud read fails.
 // Existing device data stays accessible in explicit signed-out/local mode.
-function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.now}={}){
+function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.now,preferences={getItem:key=>typeof wx==='undefined'?undefined:wx.getStorageSync(key),setItem:(key,value)=>wx.setStorageSync(key,value)}}={}){
   const app=()=>typeof appProvider==='function'?appProvider():null;
   const localMode=()=>!app()||['signed_out','login_failed'].includes(app().accountStatus().phase);
   const failure=message=>({ok:false,message,errors:{storage:message}});
   const blocked=()=>failure('请先重新登录；原数据未改动');
+  const skinKey=()=>{const owner=app()?.accountStatus().accountId;return typeof owner==='string'&&owner.length?`buffer-zone.account.skin.v1:${encodeURIComponent(owner)}`:null;};
+  function preferredSkin(){try{const key=skinKey(),id=key?preferences.getItem(key):null;return SKINS.some(item=>item.id===id)?id:null;}catch{return null;}}
   function load(){
     if(localMode())return local.load();
     if(app().accountStatus().phase!=='signed_in')return {...emptyState(),storageError:true,storageMessage:'请重新登录查看账号数据'};
     const state=app().accountSyncStatus().state;
-    try{return state?normalizeState(portableToMini(state)):emptyState();}
+    try{const view=state?normalizeState(portableToMini(state)):emptyState();return {...view,skinId:preferredSkin()||view.skinId};}
     catch{return {...emptyState(),storageError:true,storageMessage:'账号数据无法读取，原数据未改动'};}
   }
   const number=value=>{if(value===''||value==null||(typeof value!=='number'&&typeof value!=='string'))throw Error();const result=Number(value);if(!Number.isFinite(result)||result<0||Math.round(result*100)/100!==result)throw Error();return result;};
@@ -71,12 +74,18 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
       return JSON.stringify(buildPortableBackup(state||emptyState(),new Date(now()).toISOString()));
     }catch{return null;}
   }
+  function setSkin(id){
+    if(localMode())return local.setSkin(id);
+    if(app().accountStatus().phase!=='signed_in'||!SKINS.some(item=>item.id===id))return failure('皮肤未能保存');
+    try{const key=skinKey();if(!key)throw Error();preferences.setItem(key,id);return {ok:true,state:load()};}
+    catch{return failure('皮肤未能保存，原数据未改动');}
+  }
   // Old dialogs only mention local replacement/deletion; they are not consent
   // for account-wide changes. Dedicated cloud previews/prompts must call App APIs.
   async function restoreState(value,options){return localMode()?local.restoreState(value,options):failure('账号备份需要先预览并确认上传范围，原数据未改动');}
   async function clear(){return localMode()?local.clear():failure('请使用账号数据删除确认，原数据未改动');}
-  return {load,recordCash,captureReality,recordV8Event,addV8CashCondition,setV8Condition,saveV8Scenario,exportText,restoreState,clear};
+  return {load,recordCash,captureReality,recordV8Event,addV8CashCondition,setV8Condition,saveV8Scenario,exportText,restoreState,clear,setSkin};
 }
 let pageStore;
 const currentPageStore=()=>pageStore||(pageStore=createMiniAccountStore({getApp:()=>typeof getApp==='function'?getApp():null}));
-module.exports={createMiniAccountStore,...Object.fromEntries(['load','recordCash','captureReality','recordV8Event','addV8CashCondition','setV8Condition','saveV8Scenario','exportText','restoreState','clear'].map(name=>[name,(...args)=>currentPageStore()[name](...args)]))};
+module.exports={createMiniAccountStore,...Object.fromEntries(['load','recordCash','captureReality','recordV8Event','addV8CashCondition','setV8Condition','saveV8Scenario','exportText','restoreState','clear','setSkin'].map(name=>[name,(...args)=>currentPageStore()[name](...args)]))};

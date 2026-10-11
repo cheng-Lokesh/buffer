@@ -47,16 +47,16 @@ test('valid mutations, validation failures, restore/export and write errors pres
   for(const action of [()=>f.store.recordCash({balance:900,reserve:100,daily:20}),()=>f.store.recordV8Event({type:'income',amount:10,occurredAt:'2026-10-11'}),()=>f.store.setV8Condition('reserve',{amount:400}),()=>f.store.addV8CashCondition({type:'known_event',amount:10,nextOccurrence:'2026-10-18'}),()=>f.store.saveV8Scenario({id:'fixture-other-scenario'}),()=>f.store.captureReality([{type:'balance_confirmation',amount:4000,occurredAt:'2026-10-11'}]),()=>f.store.importText(backup)])assert.equal(action().ok,false);
   assert.equal(JSON.stringify(f.values.get(f.store.KEY)),before);assert.equal(f.store.clear().ok,true);global.wx.removeStorageSync=()=>{throw Error('failed');};assert.equal(f.store.clear().ok,false);delete global.wx;
 });
-test('both backup controllers refuse empty exports and require the actual restore confirmation',()=>{
+test('both backup controllers refuse empty exports and require the actual restore confirmation',async()=>{
   for(const page of ['history','settings']){
     let definition,dialog,clipboardWrites=0,restores=0,refreshes=0;
     const filename=path.resolve(`miniprogram/pages/${page}/index.js`),localRequire=require('node:module').createRequire(filename);
     const stub={exportText:()=>null,restoreState:(state,options)=>{assert.equal(options.confirmed,true);restores++;return {ok:true};}};
     const platform={showToast:()=>{},setClipboardData:()=>{clipboardWrites++;},getClipboardData:input=>input.success({data:JSON.stringify(createBackup(emptyState()))}),showModal:input=>{dialog=input;}};
-    vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Page:value=>{definition=value;},wx:platform,require:name=>name==='../../utils/store'?stub:localRequire(name)},{filename});
+    vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Page:value=>{definition=value;},wx:platform,require:name=>['../../utils/store','../../utils/account-store'].includes(name)?stub:localRequire(name)},{filename});
     const instance={...definition,data:structuredClone(definition.data),refresh:()=>{refreshes++;}};
     instance.exportBackup();assert.equal(clipboardWrites,0);
-    instance.importBackup();dialog.success({confirm:false});assert.equal(restores,0);
-    instance.importBackup();dialog.success({confirm:true});assert.equal(restores,1);assert.equal(refreshes,1);
+    instance.importBackup();await dialog.success({confirm:false});assert.equal(restores,0);
+    instance.importBackup();await dialog.success({confirm:true});assert.equal(restores,1);assert.equal(refreshes,1);
   }
 });

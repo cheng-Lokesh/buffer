@@ -1,4 +1,5 @@
-const store = require('../../utils/store');
+const store = require('../../utils/account-store');
+const {withAccountView}=require('../../utils/account-view');
 const { SKINS, getSkin } = require('../../core/skins');
 const { parseBackupText } = require('../../core/transfer');
 const { formatMoney, formatTime, formatChanges, applySkinChrome } = require('../../utils/view');
@@ -15,7 +16,7 @@ function eventView(event) {
   return { id: event.id, timeLabel: event.occurredAt, typeLabel: labels[event.type] || '现金变化', amountLabel: formatMoney(event.amount), sourceLabel: '本人确认' };
 }
 
-Page({
+Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', skins: SKINS,
     draft: { type: 'expense', occurredAt: today(), amount: '' }, errors: {}, records: [], recordPage: paginateItems([], 0, 3),
@@ -41,8 +42,8 @@ Page({
   setType(event) { this.setData({ 'draft.type': event.detail.value, 'errors.type': '' }); },
   setDate(event) { this.setData({ 'draft.occurredAt': event.detail.value, 'errors.occurredAt': '' }); },
   setAmount(event) { this.setData({ 'draft.amount': event.detail.value, 'errors.amount': '' }); },
-  saveRecord() {
-    const result = store.recordV8Event(this.data.draft);
+  async saveRecord() {
+    const result = await store.recordV8Event(this.data.draft);
     if (!result.ok) return this.setData({ errors: result.errors || { storage: '本机保存失败' } });
     this.setData({ draft: { type: 'expense', occurredAt: today(), amount: '' }, errors: {} });
     this.refresh(); wx.showToast({ title: '变化已记录', icon: 'success' });
@@ -70,9 +71,9 @@ Page({
           title: '确认恢复这份备份',
           content: `${sourceLabel}\n变化与确认记录：${parsed.state.changes.length + eventCount} 条\n皮肤：${getSkin(parsed.state.skinId).name}\n恢复后会替换当前小程序数据。`,
           confirmText: '确认恢复',
-          success: ({ confirm }) => {
+          success: async ({ confirm }) => {
             if (!confirm) return;
-            const result = store.restoreState(parsed.state, { confirmed: true });
+            const result = await store.restoreState(parsed.state, { confirmed: true });
             if (!result.ok) return wx.showToast({ title: '恢复失败', icon: 'none' });
             this.refresh(); wx.showToast({ title: '已恢复', icon: 'success' });
           }
@@ -82,6 +83,6 @@ Page({
     });
   },
   clearData() {
-    wx.showModal({ title: '清空当前微信里的数据', content: '这个操作不能撤销。建议先导出备份，再决定是否清空。', confirmText: '确认清空', confirmColor: '#b34236', success: ({ confirm }) => { if (!confirm) return; const result = store.clear(); if (!result.ok) return wx.showToast({ title: '没有清空', icon: 'none' }); this.refresh(); wx.showToast({ title: '已清空', icon: 'success' }); } });
+    wx.showModal({ title: '清空当前微信里的数据', content: '这个操作不能撤销。建议先导出备份，再决定是否清空。', confirmText: '确认清空', confirmColor: '#b34236', success: async ({ confirm }) => { if (!confirm) return; const result = await store.clear(); if (!result.ok) return wx.showToast({ title: result.message||'没有清空', icon: 'none' }); this.refresh(); wx.showToast({ title: '已清空', icon: 'success' }); } });
   }
-});
+},undefined,['saveRecord']));
