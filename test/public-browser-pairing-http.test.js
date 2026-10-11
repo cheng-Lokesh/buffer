@@ -25,3 +25,17 @@ test('HTTP rejects foreign origins, owner overrides, missing authorization, inva
   assert.equal((await f.send('consume',{challenge:proof,browserSecret:'bad'})).status,400);assert.equal(f.calls.length,0);
   f.setAllow(false);assert.equal((await f.send('create',{browserSecret:proof})).status,429);
 });
+test('handler fails closed on collisions, identity errors, oversized bodies and unsupported requests',async()=>{
+  const m=await import('../server/browser-pairing-http.js');assert.throws(()=>m.createBrowserPairingHandler({}),/pair_http_config_invalid/);
+  const f=await fixture();
+  assert.equal((await f.handle(new Request('https://buffer.test/api/auth/browser/unknown'))).status,404);
+  assert.equal((await f.handle(new Request('https://buffer.test/api/auth/browser/create?a=1'))).status,400);
+  assert.equal((await f.handle(new Request('https://buffer.test/api/auth/browser/create'))).status,405);
+  assert.equal((await f.handle(new Request('https://buffer.test/api/auth/browser/create',{method:'POST',headers:{origin:'https://buffer.test'}}))).status,415);
+  assert.equal((await f.send('create',{browserSecret:'A'.repeat(3000)})).status,413);
+  const handler=m.createBrowserPairingHandler({allowedOrigin:'https://buffer.test',admit:async()=>true,
+    store:{create:async()=>false,approve:async()=>false,consume:async()=>null},verifyGrant:async()=>{throw Error('pair_identity_rejected');}});
+  const request=(action,body)=>new Request(`https://buffer.test/api/auth/browser/${action}`,{method:'POST',headers:{origin:'https://buffer.test','content-type':'application/json',authorization:'Bearer fixture'},body:JSON.stringify(body)});
+  assert.equal((await handler(request('create',{browserSecret:proof}))).status,503);
+  assert.equal((await handler(request('approve',{code:'ABCDEFGH',wechatCode:'fresh-code-1234'}))).status,401);
+});
