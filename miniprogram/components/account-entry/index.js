@@ -1,5 +1,5 @@
 Component({
-  data:{label:'微信登录',message:'',syncActionLabel:'',busy:false,confirming:false},
+  data:{label:'微信登录',message:'',syncActionLabel:'',browserAvailable:false,busy:false,confirming:false},
   lifetimes:{attached(){this.observeSync();this.refresh();},detached(){this.stopObservingSync();}},
   pageLifetimes:{show(){this.observeSync();this.refresh();},hide(){this.stopObservingSync();}},
   methods:{
@@ -14,8 +14,28 @@ Component({
       const sync=getApp().accountSyncStatus?.();
       const messages={synced:'已同步',remote_deleted:'账号数据已删除',pending:'正在同步',offline:sync?.pendingCount?`${sync.pendingCount} 项待同步`:'离线，显示本机副本',conflict:'有变更冲突，待核对',unavailable:'同步暂不可用',session_expired:'请重新登录同步'};
       this.setData({label:phase==='signed_in'?'微信已登录':phase==='login_failed'||phase==='session_expired'?'重新登录':'微信登录',
+        browserAvailable:phase==='signed_in',
         message:phase==='signed_in'?(messages[sync?.phase]||'同步尚未连接'):'',
         syncActionLabel:phase==='signed_in'?(sync?.phase==='conflict'?'核对冲突':['offline','unavailable'].includes(sync?.phase)?'重新同步':''):'',busy:false});
+    },
+    async authorizeBrowser(){
+      if(this.data.busy||this.data.confirming)return;
+      const app=getApp(),scope=app.accountStatus();if(scope.phase!=='signed_in')return;
+      const same=()=>{const current=app.accountStatus();return current.phase===scope.phase&&current.accountId===scope.accountId&&current.viewGeneration===scope.viewGeneration;};
+      const modal=options=>new Promise(resolve=>wx.showModal({...options,success:resolve,fail:()=>resolve({confirm:false})}));
+      this.setData({confirming:true});
+      try {
+        const input=await modal({title:'登录网页版',editable:true,placeholderText:'输入网页上的 8 位授权码',confirmText:'下一步',cancelText:'取消'});
+        if(!input.confirm||!same())return;
+        const code=String(input.content||'').trim().toUpperCase();
+        if(!/^[A-HJ-NP-Z2-9]{8}$/.test(code)){wx.showToast({title:'请输入网页上的 8 位授权码',icon:'none'});return;}
+        const confirmed=await modal({title:'确认网页登录',content:`授权码 ${code}\n仅为你自己打开的缓冲区网页授权。登录不会上传本机旧数据，请勿确认他人提供的授权码。`,confirmText:'确认登录',cancelText:'取消'});
+        if(!confirmed.confirm||!same())return;
+        this.setData({busy:true});
+        await require('../../utils/browser-pairing').approveMiniBrowserLogin(wx,app,code,{confirmed:true,scope});
+        wx.showToast({title:'已确认，请返回网页',icon:'none'});
+      }catch{wx.showToast({title:'授权未完成，请回网页重试',icon:'none'});}
+      finally{this.setData({busy:false,confirming:false});this.refresh();}
     },
     async manageSync(){
       if(this.data.busy||this.data.confirming)return;

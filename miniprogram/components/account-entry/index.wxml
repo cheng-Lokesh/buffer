@@ -1,5 +1,6 @@
 <view class="account-entry">
   <button class="account-button" bindtap="activate" disabled="{{busy || confirming}}" loading="{{busy}}" aria-label="{{label}}">{{label}}</button>
   <text class="account-message" wx:if="{{message}}">{{message}}</text>
+  <button wx:if="{{browserAvailable}}" class="account-button" bindtap="authorizeBrowser" disabled="{{busy || confirming}}">登录网页版</button>
   <button wx:if="{{syncActionLabel}}" class="account-button" bindtap="manageSync" disabled="{{busy || confirming}}">{{syncActionLabel}}</button>
 </view>
