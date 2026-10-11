@@ -1,6 +1,6 @@
 const localStore=require('./store');
 const {emptyState,normalizeState}=require('../core/state');
-const {portableToMini,buildPortableBackup}=require('../core/portable-backup');
+const {portableToMini,buildPortableBackup,preparePortableBackup}=require('../core/portable-backup');
 const {SKINS}=require('../core/skins');
 
 // Account mode never falls back to another storage scope when a cloud read fails.
@@ -10,6 +10,8 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
   const localMode=()=>!app()||['signed_out','login_failed'].includes(app().accountStatus().phase);
   const failure=message=>({ok:false,message,errors:{storage:message}});
   const blocked=()=>failure('请先重新登录；原数据未改动');
+  const restorePreviews=new WeakMap();
+  const currentScope=()=>{const status=app().accountStatus();return JSON.stringify([status.phase,status.accountId,status.viewGeneration]);};
   const skinKey=()=>{const owner=app()?.accountStatus().accountId;return typeof owner==='string'&&owner.length?`buffer-zone.account.skin.v1:${encodeURIComponent(owner)}`:null;};
   function preferredSkin(){try{const key=skinKey(),id=key?preferences.getItem(key):null;return SKINS.some(item=>item.id===id)?id:null;}catch{return null;}}
   function load(){
@@ -81,12 +83,44 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
     try{const key=skinKey();if(!key)throw Error();preferences.setItem(key,id);return {ok:true,state:load()};}
     catch{return failure('皮肤未能保存，原数据未改动');}
   }
-  // Old dialogs only mention local replacement/deletion; they are not consent
-  // for account-wide changes. Dedicated cloud previews/prompts must call App APIs.
-  async function restoreState(value,options){return localMode()?local.restoreState(value,options):failure('账号备份需要先预览并确认上传范围，原数据未改动');}
-  async function clear(){return localMode()?local.clear():failure('请使用账号数据删除确认，原数据未改动');}
-  return {load,recordCash,captureReality,recordV8Event,addV8CashCondition,setV8Condition,saveV8Scenario,exportText,restoreState,clear,setSkin};
+  function previewRestore(value){
+    if(localMode()||app().accountStatus().phase!=='signed_in')return blocked();
+    try{
+      const prepared=preparePortableBackup(value.version===3?buildPortableBackup(value):value);
+      if(!prepared.ok)return failure(prepared.message);
+      const migration=app().previewAccountMigration(prepared.payload);
+      const preview={ok:true,summary:prepared.summary};
+      // Keep identity and the full payload private; the UI only receives counts.
+      restorePreviews.set(preview,{scope:currentScope(),fingerprint:JSON.stringify(value),migration});
+      return preview;
+    }catch{return failure('备份无法预览，原数据未改动');}
+  }
+  async function restoreState(value,options){
+    if(localMode())return local.restoreState(value,options);
+    const preview=options?.preview,record=preview&&restorePreviews.get(preview);
+    if(options?.confirmed!==true||options?.accountConfirmed!==true||!record)return failure('账号备份需要先预览并确认上传范围，原数据未改动');
+    try{
+      if(record.scope!==currentScope()||app().accountStatus().phase!=='signed_in'||record.fingerprint!==JSON.stringify(value))return blocked();
+      restorePreviews.delete(preview);
+      const result=await app().confirmAccountMigration(record.migration,{confirmed:true});
+      if(record.scope!==currentScope()||result.phase==='signed_out')return blocked();
+      return {ok:true,state:load(),syncPhase:result.phase,pendingCount:result.pendingCount,completed:result.phase==='synced'&&result.pendingCount===0};
+    }catch{return failure('账号恢复未完成，请检查同步状态；原本机数据未改动');}
+  }
+  async function clear(options){
+    if(localMode())return local.clear(options);
+    if(options?.confirmed!==true||options?.accountConfirmed!==true)return failure('请使用账号数据删除确认，原数据未改动');
+    if(app().accountStatus().phase!=='signed_in')return blocked();
+    const scope=currentScope();
+    try{
+      const result=await app().deleteAccountData({confirmed:true});
+      if(scope!==currentScope()||result.phase==='signed_out')return blocked();
+      const completed=result.phase==='synced'&&result.pendingCount===0&&result.state===null;
+      return {ok:true,completed,syncPhase:result.phase,pendingCount:result.pendingCount,message:completed?'账号数据已删除':'删除尚未完成，请检查同步状态'};
+    }catch{return failure('删除未完成，请检查同步状态；原本机数据未改动');}
+  }
+  return {load,recordCash,captureReality,recordV8Event,addV8CashCondition,setV8Condition,saveV8Scenario,exportText,previewRestore,restoreState,clear,setSkin};
 }
 let pageStore;
 const currentPageStore=()=>pageStore||(pageStore=createMiniAccountStore({getApp:()=>typeof getApp==='function'?getApp():null}));
-module.exports={createMiniAccountStore,...Object.fromEntries(['load','recordCash','captureReality','recordV8Event','addV8CashCondition','setV8Condition','saveV8Scenario','exportText','restoreState','clear','setSkin'].map(name=>[name,(...args)=>currentPageStore()[name](...args)]))};
+module.exports={createMiniAccountStore,...Object.fromEntries(['load','recordCash','captureReality','recordV8Event','addV8CashCondition','setV8Condition','saveV8Scenario','exportText','previewRestore','restoreState','clear','setSkin'].map(name=>[name,(...args)=>currentPageStore()[name](...args)]))};
