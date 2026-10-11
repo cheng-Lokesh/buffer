@@ -26,6 +26,9 @@ or uploaded by transport construction.
 - Sync client coverage with size/queue suites: 28/28, lines 96.40%, branches
   82.12%, functions 100%.
 - `npm run build`: exit 0; website visual source unchanged.
+- `npm run test:miniprogram:coverage`: 113/113; aggregate native core lines
+  91.61%, branches 87.00%, functions 93.84%. Individual old modules may have
+  lower coverage; this aggregate is not proof of every page or device flow.
 
 These are isolated fixtures and compilation, not live financial sync acceptance.
 Native adapter is available but not mounted as automatic synchronization. Actual
