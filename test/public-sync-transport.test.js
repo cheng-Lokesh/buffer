@@ -1,8 +1,12 @@
-import test from 'node:test';
+import nodeTest from 'node:test';
 import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
 
 const config={envId:'buffer-d4gz06df3a59dea88',syncUrl:'https://buffer-d4gz06df3a59dea88-1373773247.ap-shanghai.app.tcloudbase.com/api/account/sync'};
-const load=()=>import('../src/account-sync-transport.js');
+const require=createRequire(import.meta.url);
+for(const platform of ['web','mini']){
+const test=(name,body)=>nodeTest(`[${platform}] ${name}`,body);
+const load=async()=>platform==='web'?import('../src/account-sync-transport.js'):require('../miniprogram/core/account-sync-transport');
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 function fixture(overrides={}){
   let identity={phase:'signed_in',accountId:'fixture-account'};
@@ -46,3 +50,4 @@ test('network errors are sanitized, server status retained, malformed and excess
   for(const result of [null,{status:200,body:'not json'},{status:200,body:{text:'x'.repeat(2200000)}}])await assert.rejects(createAccountSyncTransport(fixture({request:async()=>result})).read(),/sync_response_invalid/);
   for(const status of [400,401,409,503])assert.deepEqual(await createAccountSyncTransport(fixture({request:async()=>({status,body:{code:'fixture'}})})).read(),{status,body:{code:'fixture'}});
 });
+}
