@@ -19,7 +19,7 @@ function fixture({confirm=true,fail=false}={}) {
 test('all four spaces expose one identical account component without a new navigation space',()=>{
   const config=JSON.parse(fs.readFileSync('miniprogram/app.json','utf8'));
   assert.equal(config.usingComponents?.['account-entry'],'/components/account-entry/index');
-  for(const page of config.pages)assert.match(fs.readFileSync(`miniprogram/${page}.wxml`,'utf8'),/<account-entry\s*\/>/);
+  for(const page of config.pages)assert.match(fs.readFileSync(`miniprogram/${page}.wxml`,'utf8'),/<account-entry id="accountEntry"\s*\/>/);
   assert.equal(config.pages.length,4);
 });
 test('entry starts locally, requires explicit login confirmation, and never displays account IDs',async()=>{
