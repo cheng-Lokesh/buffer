@@ -87,3 +87,12 @@ test('both shared adapters handle legacy cash, unknown values, multibyte text an
     assert.deepEqual(roundtrip.changes,original.changes);
   }
 });
+test('legacy full cashflow backup preserves confirmed scheduled income and expense semantics on both platforms',()=>{
+  const input={schemaVersion:8,cash:{balance:5000,reserve:500,daily:20},cashflowConfirmation:{confirmedAt:stamp},cashflow:{mode:'full',full:{asOf:'2026-10-11',balance:5000,reserve:500,expenses:[{id:'rent',amount:1000,frequency:'monthly',nextDate:'2026-10-15'}],incomes:[{id:'salary',amount:2000,certainty:'confirmed',date:'2026-10-20'}]}}};
+  for(const adapter of [shared,require('../miniprogram/core/portable-backup.js')]) {
+    const result=adapter.preparePortableBackup(input);assert.equal(result.ok,true);
+    assert.equal(result.payload.cashReality.conditions.filter(item=>item.type==='recurring_expense').length,1);
+    assert.equal(result.payload.cashReality.conditions.filter(item=>item.type==='known_event' && item.eventKind==='income').length,1);
+    assert.deepEqual(result.payload.cashflow,input.cashflow);
+  }
+});
