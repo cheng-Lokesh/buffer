@@ -34,3 +34,10 @@ test('native platform failure is recoverable and does not expose provider error 
   const f=appFixture({failed:true});await assert.rejects(f.app.loginWechat(),/^Error: login_unavailable$/);
   assert.equal(f.app.accountStatus().phase,'login_failed');assert.equal(f.calls.length,1);
 });
+test('same-owner logout/relogin has a new view generation, while concurrent login coalesces',async()=>{
+  const f=appFixture();assert.equal(f.app.accountStatus().viewGeneration,0);
+  await Promise.all([f.app.loginWechat(),f.app.loginWechat()]);assert.equal(f.app.accountStatus().viewGeneration,1);
+  f.app.logoutAccount();assert.equal(f.app.accountStatus().viewGeneration,2);
+  await f.app.loginWechat();assert.equal(f.app.accountStatus().viewGeneration,3);
+  assert.equal(f.calls.filter(call=>call.kind==='login').length,2);
+});

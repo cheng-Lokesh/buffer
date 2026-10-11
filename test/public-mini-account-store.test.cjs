@@ -63,3 +63,9 @@ test('logout while confirmation is in flight does not acknowledge a local-mode s
   const f=fixture();f.app.confirmAccountOperation=async()=>{f.setPhase('signed_out');return {phase:'signed_out',state:null};};
   assert.equal((await f.store.recordCash({balance:1,reserve:0,daily:1})).ok,false);assert.equal(f.reads,0);
 });
+test('same-account relogin invalidates in-flight page confirmation acknowledgement',async()=>{
+  const f=fixture();let generation=1;
+  f.app.accountStatus=()=>({phase:'signed_in',accountId:'fixture-a',viewGeneration:generation});
+  f.app.confirmAccountOperation=async()=>{generation+=2;return {phase:'synced',pendingCount:0};};
+  assert.equal((await f.store.recordCash({balance:1,reserve:0,daily:1})).ok,false);assert.equal(f.reads,0);
+});
