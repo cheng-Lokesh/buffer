@@ -66,13 +66,17 @@ function createAccountSyncClient({storage,transport,createOperationId} = {}) {
     if (!object(operation) || !operationTypes.has(operation.type) || operation.type === 'import_local') throw new Error('invalid_confirmed_operation');
     if (phase === 'conflict' || phase === 'session_expired' || cache.queue.some(item=>item.operation.type === 'delete_all')) throw new Error('resolve_sync_before_new_operation');
     if (operation.type === 'delete_all' && cache.queue.length) throw new Error('sync_pending_before_delete');
-    if (operation.type !== 'delete_all' && !object(localState)) throw new Error('invalid_local_state');
+    if (operation.type !== 'delete_all' && !object(localState) && typeof localState !== 'function') throw new Error('invalid_local_state');
     const operationId=createOperationId();
     if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(operationId) || cache.queue.some(item=>item.operationId === operationId)) throw new Error('invalid_operation_id');
+    // Produce optimistic domain identities from the exact ID sent to the server.
+    // A validation exception occurs before any cache/queue write.
+    const confirmedState = operation.type === 'delete_all' ? null : typeof localState === 'function' ? localState(operationId) : localState;
+    if (operation.type !== 'delete_all' && !object(confirmedState)) throw new Error('invalid_local_state');
     const baseRevision=cache.server.revision+cache.queue.length;
     if (!counter(baseRevision+1)) throw new Error('revision_exhausted');
     const command={protocolVersion:1,schemaVersion:9,operationId,baseRevision,deletionGeneration:cache.server.deletionGeneration,confirmed:true,operation:copy(operation)};
-    persist({...cache,localState:operation.type === 'delete_all' ? null : copy(localState),queue:[...cache.queue,command]});phase='pending';
+    persist({...cache,localState:copy(confirmedState),queue:[...cache.queue,command]});phase='pending';
     return status();
   }
   async function drain(stamp) {
