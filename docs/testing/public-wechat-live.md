@@ -59,3 +59,47 @@ unverified until the platform accepts configuration and the check is repeated.
 Outstanding siblings: web/WeChat account control/linkage, durable financial
 repository and confirmation transactions, two-client integration, cloud proxy
 source identity, cost/public-service gates and true end-to-end data sync.
+
+## Delegated domain configuration recheck — 2026-10-08
+
+- Retried the existing Tencent Cloud Mini Program authorization without unlinking
+  or widening authorization. Although the UI initially displayed contradictory
+  success/failure dialogs, the actual list row subsequently showed authorization
+  successful; server-domain editing became enabled.
+- Attempted the two required request domains using the English semicolon
+  separator described in the dialog. No success response was observed. The
+  Chinese separator suggested by the placeholder instead produced an explicit
+  invalid-domain validation message; it was reverted. A single-domain submission
+  also did not persist.
+- Cancelled the unsaved dialog and refreshed the page. The request-domain table
+  still displayed an empty value. Do not interpret an enabled editor or a clicked
+  save button as successful configuration.
+- Repeated the official local automation SDK native callback probe with empty
+  JSON: reachable=false, domainBlocked=true, timeout=false; command exit0.
+  Native transport remains BLOCKED, not PASS.
+- No purchase, renewal, pay-as-you-go activation, unlinking, domain-validation
+  bypass, financial upload, or product-code modification was performed.
+
+## Native login after WeChat domain confirmation — 2026-10-11
+
+- The user completed the administrator scan for the request-domain submission.
+  The submission preserved the 18 existing entries and added the two required
+  endpoints. This run did not independently read back the persisted domain table.
+- Reconnected the official WeChat developer-tool automation SDK to the real
+  Mini Program project. No mocked wx methods or domain-validation bypass was used.
+- An empty-body native wx.request probe now returned reachable=true, HTTP400
+  (expected missing login code), process exit0; the previous domain-list blocker
+  no longer occurred in this developer-tool check.
+- A real wx.login followed exclusively by native wx.request returned backend
+  HTTP200/ticketReceived=true, official custom sign-in HTTP200/sessionIssued=true,
+  and official user/me HTTP200/identityVerified=true; process exit0.
+  Identity verification compared the session subject with the profile subject.
+- Login codes, tickets, session tokens and account identifiers remained in memory
+  and were not printed, saved or committed. No financial data was uploaded.
+- This supersedes the native-transport BLOCKED result above for the tested
+  developer-tool environment only. Handset verification and financial sync remain
+  unverified. This is not public-release or dual-client acceptance.
+- Restoration of the temporarily removed low-code delegated association is
+  pending: the Tencent Cloud console requires the user to log in again.
+  The existing cloud environment was not recreated, purchased or upgraded;
+  no automatic renewal or excess-usage billing was enabled.
