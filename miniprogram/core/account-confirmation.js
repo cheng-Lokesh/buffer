@@ -66,7 +66,8 @@ function applyConfirmedAccountOperation({state,operation,operationId} = {}, opti
       keys(operation,['type','action','confirmedAt','provenance','candidates']);
       if (!Array.isArray(operation.candidates) || operation.candidates.length > 100) invalid();
       for (const candidate of operation.candidates) {
-        keys(candidate,['type','name','amount','occurrenceId','conditionId','frequency','occurredAt','actualDate','startDate','endDate','evidenceText']);
+        keys(candidate,['type','name','amount','occurrenceId','conditionId','frequency','occurredAt','actualDate','startDate','endDate','evidenceText','includedInDailyFloor']);
+        if(Object.hasOwn(candidate,'includedInDailyFloor')&&(candidate.type!=='recurring_expense'||typeof candidate.includedInDailyFloor!=='boolean'))invalid();
         if (Object.hasOwn(candidate,'amount')) money(candidate.amount);
       }
       next.cashReality = commitRealityCapture(next.cashReality,operation.candidates,captureOptions).reality;

@@ -89,6 +89,10 @@ function sanitizedCandidate(value, context) {
   copyText('endDate', 10);
   copyText('evidenceText', 240);
   if (value.amount !== undefined) candidate.amount = Number(value.amount);
+  if (Object.hasOwn(value, 'includedInDailyFloor')) {
+    if (candidate.type !== 'recurring_expense' || typeof value.includedInDailyFloor !== 'boolean') throw new Error('日常支出包含标记无效。');
+    candidate.includedInDailyFloor = value.includedInDailyFloor;
+  }
 
   const amountTypes = new Set(['balance_confirmation', 'one_off_income', 'one_off_expense', 'known_future_income', 'known_future_expense', 'recurring_income', 'recurring_expense', 'existing_occurrence_amount_change']);
   if (amountTypes.has(candidate.type) && !validAmount(candidate.amount)) throw new Error('金额不能为空或格式无效。');
@@ -212,6 +216,7 @@ function applyCandidate(source, candidate, context, options, nextId) {
       startDate: candidate.startDate,
       nextOccurrence: candidate.startDate,
       endDate: candidate.endDate || '',
+      includedInDailyFloor: candidate.includedInDailyFloor === true,
       status: 'confirmed',
       confirmedAt,
       source: 'user_confirmed',
