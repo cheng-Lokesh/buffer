@@ -19,7 +19,7 @@ function conditionView(item) {
 Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', hasCash: false, confirmedLabel: '还没有确认记录',
-    basicsDraft: { balance: '', reserve: '', daily: '', note: '' }, basicsErrors: {},
+    basicsDraft: { balance: '', reserve: '', daily: '', note: '' }, basicsErrors: {}, basicsDirty:false,
     frequencyNames: ['每天', '每周', '每月'], frequencyIndex: 2,
     recurringDraft: { kind: 'expense', amount: '', frequency: 'monthly', nextOccurrence: today(), includedInDailyFloor: false }, recurringErrors: {}, recurringItems: [], recurringPage: paginateItems([], 0, 3),
     eventDraft: { kind: 'expense', amount: '', nextOccurrence: today() }, eventErrors: {}, eventItems: [], eventPage: paginateItems([], 0, 3),
@@ -33,18 +33,18 @@ Page(withAccountView({
     const events = state.cashReality.conditions.filter((item) => item.type === 'known_event').map(conditionView);
     this.setData({
       skin, skinClass: `skin-${skin.id}`, hasCash: state.cash.balance !== '' && state.cash.daily !== '', confirmedLabel: formatTime(state.confirmedAt),
-      basicsDraft: { balance: String(state.cash.balance), reserve: String(state.cash.reserve), daily: String(state.cash.daily), note: '' },
+      ...(!this.data.basicsDirty?{basicsDraft: { balance: String(state.cash.balance), reserve: String(state.cash.reserve), daily: String(state.cash.daily), note: '' }}:{}),
       recurringItems: recurring, eventItems: events,
       recurringPage: paginateItems(recurring, this.data.recurringPage.page, 3), eventPage: paginateItems(events, this.data.eventPage.page, 3)
     });
   },
   selectScene(event) { this.setData(createSceneState('conditions', Number(event.currentTarget.dataset.index))); },
   changeScene(event) { this.setData(createSceneState('conditions', Number(event.detail.current))); },
-  setBasic(event) { const field = event.currentTarget.dataset.field; this.setData({ [`basicsDraft.${field}`]: event.detail.value, [`basicsErrors.${field}`]: '' }); },
+  setBasic(event) { const field = event.currentTarget.dataset.field; this.setData({basicsDirty:true, [`basicsDraft.${field}`]: event.detail.value, [`basicsErrors.${field}`]: '' }); },
   async saveBasics() {
     const result = await store.recordCash(this.data.basicsDraft);
     if (!result.ok) return this.setData({ basicsErrors: result.errors || { storage: '本机保存失败' } });
-    this.setData({ basicsErrors: {} }); this.refresh(); wx.showToast({ title: '基础条件已确认', icon: 'success' });
+    this.setData({ basicsErrors: {},basicsDirty:false }); this.refresh(); wx.showToast({ title: '基础条件已确认', icon: 'success' });
   },
   setRecurringKind(event) { this.setData({ 'recurringDraft.kind': event.detail.value }); },
   setRecurringAmount(event) { this.setData({ 'recurringDraft.amount': event.detail.value, 'recurringErrors.amount': '' }); },
