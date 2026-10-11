@@ -105,3 +105,9 @@ test('restore and deletion errors or session changes never acknowledge completio
   f.app.deleteAccountData=async()=>{f.setPhase('signed_out');return {phase:'synced',pendingCount:0,state:null};};
   assert.equal((await f.store.clear({confirmed:true,accountConfirmed:true})).ok,false);assert.equal(f.reads,0);
 });
+
+test('cloud consent after logout never authorizes deletion or replacement of local data',async()=>{
+  const f=fixture();f.setPhase('signed_out');
+  assert.equal((await f.store.restoreState({}, {confirmed:true,accountConfirmed:true,preview:{}})).ok,false);
+  assert.equal((await f.store.clear({confirmed:true,accountConfirmed:true})).ok,false);assert.equal(f.writes,0);
+});
