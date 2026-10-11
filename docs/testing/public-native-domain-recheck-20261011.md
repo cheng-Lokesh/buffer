@@ -25,3 +25,14 @@
 ## 保护边界
 
 本轮未部署代码、修改网站密码保护、购买资源、开启续费/超额扣费、上传本机账单或在真实账号写入夹具。只读权限检查不替代跨账号动态攻击验收。开发者工具域名可达不替代手机真机或微信发布审核。
+
+## 登录验收脚本文案断言修正
+
+- RED：新增 `test/public-mini-account-live-script.test.cjs`，运行
+  `node --test test/public-mini-account-live-script.test.cjs`，1项失败；失败
+  原因是 live harness 仍将登录后的消息固定断言为“本机数据未上传”，而当前
+  组件展示实际同步状态。
+- GREEN：仅调整 `scripts/check-mini-account-live.mjs`，删除过时消息断言，改为
+  登录后立即验证本机现金状态指纹不变。相同测试命令 1/1 通过。
+- RED 与 GREEN 各自独立提交。未改产品运行代码，也未绕过登录确认。真实弹窗
+  回调仍需由本人确认后才能重跑登录/退出验收。
