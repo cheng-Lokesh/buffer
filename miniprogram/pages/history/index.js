@@ -16,6 +16,11 @@ function eventView(event) {
   return { id: event.id, timeLabel: event.occurredAt, typeLabel: labels[event.type] || '现金变化', amountLabel: formatMoney(event.amount), sourceLabel: '本人确认' };
 }
 
+function transferScope(){
+  const status=typeof getApp==='function'?getApp()?.accountStatus?.():null;
+  return {account:!!status&&!['signed_out','login_failed'].includes(status.phase),key:JSON.stringify([status?.phase,status?.accountId,status?.viewGeneration])};
+}
+
 Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', skins: SKINS,
@@ -61,28 +66,47 @@ Page(withAccountView({
     wx.setClipboardData({ data: text, success: () => wx.showModal({ title: '备份已复制', content: '请把这段内容保存在只有你能访问的位置。需要恢复时，再复制回来。', showCancel: false }), fail: () => wx.showToast({ title: '复制失败，请稍后再试', icon: 'none' }) });
   },
   importBackup() {
+    const scope=transferScope();
+    return new Promise(resolve=>{
     wx.getClipboardData({
       success: ({ data }) => {
         const parsed = parseBackupText(data);
-        if (!parsed.ok) return wx.showModal({ title: '没有恢复', content: parsed.message, showCancel: false });
+        if (!parsed.ok){wx.showModal({ title: '没有恢复', content: parsed.message, showCancel: false });return resolve();}
+        const preview=scope.account?store.previewRestore(parsed.state):null;
+        if(scope.account&&!preview?.ok){wx.showModal({title:'没有恢复',content:preview?.message||'请重新登录',showCancel:false});return resolve();}
         const sourceLabel = parsed.source === 'website' ? '电脑官网备份' : '小程序备份';
         const eventCount = parsed.state.cashReality.events.length;
         wx.showModal({
-          title: '确认恢复这份备份',
-          content: `${sourceLabel}\n变化与确认记录：${parsed.state.changes.length + eventCount} 条\n皮肤：${getSkin(parsed.state.skinId).name}\n恢复后会替换当前小程序数据。`,
+          title: scope.account?'恢复到当前账号':'确认恢复这份备份',
+          content: scope.account?`${sourceLabel}\n条件：${preview.summary.conditions} 项，变化：${preview.summary.events} 条\n仅可恢复到已同步的空账号，之后会同步到其他设备。本机旧数据不会删除。`:`${sourceLabel}\n变化与确认记录：${parsed.state.changes.length + eventCount} 条\n皮肤：${getSkin(parsed.state.skinId).name}\n恢复后会替换当前小程序数据。`,
           confirmText: '确认恢复',
           success: async ({ confirm }) => {
-            if (!confirm) return;
-            const result = await store.restoreState(parsed.state, { confirmed: true });
-            if (!result.ok) return wx.showToast({ title: '恢复失败', icon: 'none' });
-            this.refresh(); wx.showToast({ title: '已恢复', icon: 'success' });
-          }
+            try{
+              if (!confirm) return;
+              if(scope.key!==transferScope().key)return wx.showToast({title:'账号已变化，请重新操作',icon:'none'});
+              const result = await store.restoreState(parsed.state, { confirmed: true,...(scope.account?{accountConfirmed:true,preview}:{}) });
+              if (!result.ok) return wx.showToast({ title: result.message||'恢复失败', icon: 'none' });
+              this.refresh();const completed=!scope.account||result.completed;
+              wx.showToast({ title: completed?'已恢复':'恢复等待同步', icon: completed?'success':'none' });
+            }catch{wx.showToast({title:'恢复未完成',icon:'none'});}finally{resolve();}
+          },fail:()=>resolve()
         });
       },
-      fail: () => wx.showToast({ title: '无法读取剪贴板', icon: 'none' })
+      fail: () => {wx.showToast({ title: '无法读取剪贴板', icon: 'none' });resolve();}
+    });
     });
   },
   clearData() {
-    wx.showModal({ title: '清空当前微信里的数据', content: '这个操作不能撤销。建议先导出备份，再决定是否清空。', confirmText: '确认清空', confirmColor: '#b34236', success: async ({ confirm }) => { if (!confirm) return; const result = await store.clear(); if (!result.ok) return wx.showToast({ title: result.message||'没有清空', icon: 'none' }); this.refresh(); wx.showToast({ title: '已清空', icon: 'success' }); } });
+    const scope=transferScope();
+    return new Promise(resolve=>wx.showModal({ title: scope.account?'删除当前账号的数据':'清空当前微信里的数据', content: scope.account?'将删除此账号的现金事实、条件和记录，并同步到其他设备。无法撤销；本机旧数据不会删除。请先保留需要的备份。':'这个操作不能撤销。建议先导出备份，再决定是否清空。', confirmText: '确认清空', confirmColor: '#b34236', success: async ({ confirm }) => {
+      try{
+        if (!confirm) return;
+        if(scope.key!==transferScope().key)return wx.showToast({title:'账号已变化，请重新操作',icon:'none'});
+        const result = await store.clear(scope.account?{confirmed:true,accountConfirmed:true}:undefined);
+        if (!result.ok) return wx.showToast({ title: result.message||'没有清空', icon: 'none' });
+        this.refresh();const completed=!scope.account||result.completed;
+        wx.showToast({ title: completed?'已清空':result.message||'删除等待同步', icon: completed?'success':'none' });
+      }catch{wx.showToast({title:'删除未完成',icon:'none'});}finally{resolve();}
+    },fail:()=>resolve()}));
   }
-},undefined,['saveRecord']));
+},undefined,['saveRecord','importBackup','clearData']));
