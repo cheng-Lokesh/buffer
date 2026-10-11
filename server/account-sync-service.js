@@ -81,7 +81,13 @@ export function createAccountSyncService({authenticate, repository, applyConfirm
         if (command.operation.type === 'import_local' && row.state !== null) return conflict('migration_requires_empty_account');
         let state = null;
         if (command.operation.type !== 'delete_all') {
-          const result = await applyConfirmedOperation({state:structuredClone(row.state), operation:structuredClone(command.operation)});
+          let result;
+          try {
+            result = await applyConfirmedOperation({state:structuredClone(row.state), operation:structuredClone(command.operation), operationId:command.operationId});
+          } catch (error) {
+            if (error?.code === 'invalid_confirmed_operation') return response(400, {code:'invalid_confirmed_operation'});
+            throw error;
+          }
           if (!record(result) || !Object.hasOwn(result, 'state') || result.state == null) throw new Error('invalid_domain_result');
           state = structuredClone(result.state);
         }
