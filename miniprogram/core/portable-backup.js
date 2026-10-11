@@ -81,7 +81,7 @@ function webState(value) {
     }
     envelope.cashReality=normalizeCashReality({conditions});
   }
-  if(value.cash)cash(value.cash);
+  if(Object.hasOwn(value,'cash'))cash(value.cash);
   return validateAccountState(envelope);
 }
 
