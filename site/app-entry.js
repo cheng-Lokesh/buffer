@@ -4,7 +4,7 @@ import { buildCashRealityProjection, buildNowSummary, buildExpectedOccurrences, 
 import { adaptLegacyCashToV8Reality } from '../src/v8-legacy-adapter.js';
 import { buildProductStateEnvelope } from '../src/state-envelope.js';
 import { persistProductState } from '../src/product-persistence.js';
-import { prepareBackupPreview } from '../src/backup-restore.js';
+import { preparePortableBackup } from '../src/portable-backup.js';
 import { buildNowDashboardFacts } from '../src/v12-1-now-dashboard-facts.js';
 import { buildNowForecastChart } from '../src/v12-1-now-forecast-chart.js';
 import { createBalanceAxis, formatChartAmount } from '../src/v12-1-chart-axis.js';
@@ -882,14 +882,24 @@ async function restoreFile(event) {
   if (!file) return;
   try {
     const value = JSON.parse(await file.text());
-    const preview = prepareBackupPreview(value, { fileName: file.name, fileSize: file.size });
-    if (!preview.ok) return alert(preview.message);
+    const portable = preparePortableBackup(value, { fileSize: file.size });
+    if (!portable.ok) return alert(portable.message);
+    const preview = {payload:portable.payload,skippedItems:0,summary:{fileName:file.name,schemaVersion:9,cashConditions:portable.summary.conditions,cashEvents:portable.summary.events}};
     const layer = modal(`<header><div><span>恢复前核对</span><h2>${escapeHtml(preview.summary.fileName)}</h2><p>包含 ${preview.summary.cashConditions} 个已确认项目和 ${preview.summary.cashEvents} 条收支记录。</p></div><button type="button" data-close aria-label="关闭">×</button></header><div class="live-confirm"><p>备份版本 <strong>${preview.summary.schemaVersion}</strong></p><p>无法使用的内容 <strong>${preview.skippedItems}</strong></p></div><footer><button type="button" data-close-again>取消</button><button class="live-primary" type="button" data-restore>确认恢复</button></footer>`, '恢复备份');
     layer.querySelector('[data-close-again]').addEventListener('click', () => layer.remove());
     layer.querySelector('[data-restore]').addEventListener('click', () => {
-      state = { ...preview.payload, schemaVersion: 9, cashReality: normalizeCashReality(preview.payload.cashReality), visualSkinId: SITE_APPEARANCE };
-      saveReality(state.cashReality, 'backup_restored');
-      layer.remove();
+      try {
+        const payload = {...preview.payload,visualSkinId:SITE_APPEARANCE};
+        const result = persistProductState(localStorage,{stateKey:STATE_KEY,recoveryKey:RECOVERY_KEY,payload,recoveryVault,id:`recovery-${Date.now()}`,createdAt:nowIso()});
+        if (!result.ok) throw new Error('restore_save_failed');
+        // Restoring existing evidence is not a new cash confirmation.
+        state = payload;
+        recoveryVault = result.recoveryVault;
+        nowSelectedDay = null;
+        futureSelectedDay = null;
+        renderAll();
+        layer.remove();
+      } catch { alert('本机保存失败，原有数据未替换。请稍后重试。'); }
     });
   } catch { alert('备份文件无法读取。'); }
   event.target.value = '';
