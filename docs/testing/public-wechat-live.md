@@ -103,3 +103,17 @@ source identity, cost/public-service gates and true end-to-end data sync.
   pending: the Tencent Cloud console requires the user to log in again.
   The existing cloud environment was not recreated, purchased or upgraded;
   no automatic renewal or excess-usage billing was enabled.
+
+## Delegated association restoration gate — 2026-10-11
+
+- After the user logged back into the existing Tencent Cloud environment,
+  the target Mini Program row displayed that the main Mini Program was unbound.
+- Clicking the existing scan-authorization entry opened an upgrade dialog:
+  the current plan does not support this feature. It offered a paid standard
+  plan and defaulted to continuous monthly billing. No order was submitted.
+- Cancelled the upgrade dialog and verified it was no longer present.
+  The alternate authentication-method button is disabled; it was not forced.
+- Restoration remains BLOCKED by the current console plan gate. This does not
+  invalidate the earlier real native custom-login result, but that test alone
+  does not prove Mini Program release readiness or financial synchronization.
+  No cloud resources, credentials, account permissions or product code changed.
