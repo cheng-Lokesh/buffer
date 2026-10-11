@@ -55,8 +55,31 @@ test('browser pairing is private, expiring, browser-bound and atomically one-use
     await assert.rejects(rpc('buffer_pair_approve',[key,code,'invalid owner','ticket']),/pair_invalid/);
     await assert.rejects(rpc('buffer_pair_approve',[key,code,'fixture-user','x'.repeat(24577)]),/pair_invalid/);
     await assert.rejects(db.exec('SET ROLE authenticated; SELECT * FROM buffer_pair_private.challenges'),/permission denied/);
-    await db.exec('RESET ROLE');await db.exec(sql);
+    await db.exec('RESET ROLE');await assert.rejects(db.exec(sql),/browser_pairing_migration_conflict/);
     assert.equal(await rpc('buffer_pair_consume',[key,challenge,secret]),null,'reinstall cannot resurrect grants');
     assert.equal((await db.query("SELECT has_table_privilege('authenticated','buffer_pair_private.challenges','SELECT') AS allowed")).rows[0].allowed,false);
   } finally {await db.close();}
+});
+
+test('browser pairing SQL refuses pre-existing schemas and RPCs without replacing them',async()=>{
+  const file=new URL('../server/sql/004-browser-pairing.sql',import.meta.url),sql=readFileSync(file,'utf8');
+  for(const collision of [
+    {name:'private schema',setup:`CREATE SCHEMA buffer_pair_private; CREATE TABLE buffer_pair_private.keep_me(id integer);`,check:async db=>{
+      assert.equal((await db.query("SELECT to_regclass('buffer_pair_private.keep_me') IS NOT NULL AS present")).rows[0].present,true);
+      assert.equal((await db.query("SELECT to_regclass('buffer_pair_private.challenges') IS NULL AS untouched")).rows[0].untouched,true);
+    }},
+    {name:'public RPC',setup:`CREATE FUNCTION public.buffer_pair_create(text,text,text,text) RETURNS boolean LANGUAGE sql AS $$ SELECT true $$;`,check:async db=>{
+      assert.equal((await db.query("SELECT public.buffer_pair_create('a','b','c','d') AS value")).rows[0].value,true);
+    }}
+  ]){
+    const db=new PGlite();
+    try{
+      await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA auth;
+        CREATE FUNCTION auth.uid() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub' $$;
+        CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role' $$;`);
+      await db.exec(collision.setup);
+      await assert.rejects(db.exec(sql),/browser_pairing_migration_conflict/,collision.name);
+      await collision.check(db);
+    }finally{await db.close();}
+  }
 });
