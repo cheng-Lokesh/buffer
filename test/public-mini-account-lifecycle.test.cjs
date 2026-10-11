@@ -5,7 +5,7 @@ const vm=require('node:vm');
 const {createRequire}=require('node:module');
 const nativeRequire=createRequire(require('node:path').resolve('miniprogram/app.js'));
 function fixture(){
-  let app,network,offline=false;const requests=[],storage=new Map(),reads=[];
+  let app,network,offline=false;const requests=[],storage=new Map(),reads=[],timers=new Map();let timerId=0;
   let view={protocolVersion:1,schemaVersion:9,revision:0,deletionGeneration:0,state:null};
   const wx={login:opts=>opts.success({code:'fixture-code'}),
     getStorageSync:key=>{reads.push(key);return storage.get(key)||'';},
@@ -25,8 +25,9 @@ function fixture(){
       if(opts.url.endsWith('/user/me'))return opts.success({statusCode:200,data:{sub:'fixture-account'}});
       return opts.success({statusCode:200,data:{sub:'fixture-account',access_token:'fixture-token',refresh_token:'fixture-refresh',expires_in:120}});
     }};
-  vm.runInNewContext(fs.readFileSync('miniprogram/app.js','utf8'),{App:value=>app=value,wx,require:nativeRequire});
-  return {app,requests,reads,storage,setOffline:value=>offline=value,reconnect:()=>network({isConnected:true})};
+  vm.runInNewContext(fs.readFileSync('miniprogram/app.js','utf8'),{App:value=>app=value,wx,require:nativeRequire,setTimeout:(fn,delay)=>{timers.set(++timerId,{fn,delay});return timerId;},clearTimeout:id=>timers.delete(id)});
+  return {app,requests,reads,storage,timers,setOffline:value=>offline=value,reconnect:()=>network({isConnected:true}),disconnect:()=>network({isConnected:false}),setRemote:value=>view=value,
+    async tick(){const [id,timer]=timers.entries().next().value;timers.delete(id);return timer.fn();}};
 }
 const operation={type:'confirm_reality',action:'confirm_basics',cash:{balance:6000,reserve:1000,daily:30},confirmedAt:'2026-10-11T02:00:00.000Z'};
 test('native App exposes confirmed sync without reading legacy state or making startup requests',async()=>{
@@ -69,4 +70,14 @@ test('native App publishes own sync changes and detaches listeners without expos
   f.setOffline(true);await f.app.confirmAccountOperation(operation,{confirmed:true});assert.equal(seen.at(-1).phase,'offline');
   f.app.logoutAccount();assert.equal(seen.at(-1).state,null);assert.equal(seen.at(-1).phase,'signed_out');
   const count=seen.length;detach();f.setOffline(false);await f.app.loginWechat();assert.equal(seen.length,count);
+});
+
+test('native foreground continuously observes remote revisions but background, disconnect and logout stop it',async()=>{
+  const f=fixture();f.app.onLaunch();await f.app.onShow();assert.equal(f.timers.size,0);
+  await f.app.loginWechat();assert.equal(f.timers.size,1);assert.equal([...f.timers.values()][0].delay,3000);
+  f.setRemote({protocolVersion:1,schemaVersion:9,revision:1,deletionGeneration:0,state:{schemaVersion:9,cash:{balance:123,reserve:0,daily:1}}});
+  await f.tick();assert.equal(f.app.accountSyncStatus().state.cash.balance,123);assert.equal(f.timers.size,1);
+  f.app.onHide();assert.equal(f.timers.size,0);await f.app.onShow();assert.equal(f.timers.size,1);
+  await f.disconnect();assert.equal(f.timers.size,0);await f.reconnect();assert.equal(f.timers.size,1);
+  f.app.logoutAccount();assert.equal(f.timers.size,0);assert.equal(f.app.accountSyncStatus().state,null);
 });
