@@ -34,7 +34,7 @@ for(const platform of ['web','mini']){
   test('logout and account switch isolate financial view without deleting saved pending queue',async()=>{
     const f=await fixture();await f.controller.login();f.setOffline(true);await f.controller.confirm(basics,{confirmed:true});f.controller.logout();assert.equal(f.controller.status().state,null);
     await assert.rejects(f.controller.confirm(basics,{confirmed:true}),/authentication_required/);f.setOffline(false);f.setOwner('fixture-b');await f.controller.login();assert.equal(f.controller.status().state,null);assert.equal(f.controller.status().pendingCount,0);
-    f.controller.logout();f.setOwner('fixture-a');await f.controller.login();assert.equal(f.controller.status().pendingCount,1);await f.controller.refresh();assert.equal(f.controller.status().state.cash.balance,5000);
+    f.controller.logout();f.setOwner('fixture-a');await f.controller.login();assert.equal(f.controller.status().pendingCount,0);assert.equal(f.controller.status().state.cash.balance,5000);assert.equal(f.sends,1);
   });
   test('migration requires validated preview and explicit confirmation; delete only reports cloud acknowledgement after flush',async()=>{
     const f=await fixture();await f.controller.login();const state={schemaVersion:9,cashReality:normalizeCashReality()};
