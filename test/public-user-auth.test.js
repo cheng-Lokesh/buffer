@@ -43,3 +43,12 @@ test('streaming cap cancels oversized profile without retaining personal data',a
   }))});
   assert.equal(await auth(request(token())),null);assert.equal(cancelled,true);
 });
+test('failed stream cleanup and a token expiring during profile verification remain closed',async()=>{
+  const auth=create({fetchImpl:async()=>new Response(new ReadableStream({
+    start(controller){controller.enqueue(new Uint8Array(16385));},cancel(){throw Error('private cleanup error');}
+  }))});
+  assert.equal(await auth(request(token())),null);
+  let clock=now;
+  const expiring=create({now:()=>clock,fetchImpl:async()=>{clock+=121000;return Response.json({sub:accountId});}});
+  assert.equal(await expiring(request(token())),null);
+});

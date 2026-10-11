@@ -91,7 +91,7 @@ export function createAccountSyncService({authenticate, repository, applyConfirm
         await tx.write(next);
         await tx.putReceipt(command.deletionGeneration, command.operationId, {digest, result});
         return response(200, result);
-      });
+      }, principal);
     } catch { return response(503, {code:'sync_unavailable'}); }
   };
 }
