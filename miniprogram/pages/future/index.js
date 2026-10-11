@@ -1,7 +1,8 @@
 const store = require('../../utils/account-store');
 const {withAccountView}=require('../../utils/account-view');
 const { getSkin } = require('../../core/skins');
-const { buildCashRealityProjection, buildNowSummary, explainProjectionPoint, createScenarioPatch, runScenarioPatch } = require('../../core/v8-cash-reality');
+const { buildCashRealityProjection, buildNowSummary, explainProjectionPoint, createScenarioPatch, runScenarioPatch, describeScenarioOperation } = require('../../core/v8-cash-reality');
+const { scenarioConditionOptions, buildScenarioOperation } = require('../../core/scenario-composer');
 const { formatMoney, applySkinChrome, drawTrajectory } = require('../../utils/view');
 const { createSceneState } = require('../../core/viewport');
 const { parseLookupCents, findBalanceDay, lookupDateOptions, shanghaiDate } = require('../../core/forecast-lookup');
@@ -31,7 +32,13 @@ Page(withAccountView({
     projection: null, summary: null, trajectory: [], pointOptions: [], selectedDate: '', selectedPoint: null,
     lookupMode: 'date', lookupAmount: '', lookupResult: '', lookupMonths: [], lookupMonthLabels: [], lookupMonthIndex: 0, lookupDates: [], lookupDayLabels: [], lookupDayIndex: 0,
     touchLabel: '待确认', endBalanceLabel: '待确认', openingLabel: '待确认', inflowLabel: '待确认', recurringLabel: '待确认', dailyLabel: '待确认', eventLabel: '待确认', closingLabel: '待确认',
-    simulationDaily: '', simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '',
+    simulationTypes: ['增加一次收入', '增加一次支出', '新增周期收入', '新增周期支出', '调整已有金额', '暂停一项条件'],
+    simulationTypeValues: ['income_once', 'expense_once', 'income_recurring', 'expense_recurring', 'change_amount', 'pause_condition'],
+    simulationType: 'income_once', simulationTypeIndex: 0,
+    simulationFrequencyLabels: ['每天', '每周', '每月'], simulationFrequencyValues: ['daily', 'weekly', 'monthly'], simulationFrequency: 'monthly', simulationFrequencyIndex: 2,
+    simulationName: '', simulationAmount: '', simulationDate: today(),
+    simulationConditions: [], simulationConditionIds: [], simulationConditionLabels: [], simulationConditionIndex: 0,
+    simulationOperations: [], simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '',
     ...createSceneState('future')
   },
   onShow() { this.refresh(); },
@@ -40,6 +47,8 @@ Page(withAccountView({
     const skin = applySkinChrome(state.skinId);
     const projection = buildCashRealityProjection(state.cashReality, { asOf: today(), horizonDays: this.data.rangeDays });
     const summary = buildNowSummary(projection);
+    const simulationConditions = scenarioConditionOptions(state.cashReality.conditions, this.data.simulationType);
+    const simulationConditionIndex = Math.min(this.data.simulationConditionIndex || 0, Math.max(0, simulationConditions.length - 1));
     const selectedDate = projection.valid ? (this.data.selectedDate && projection.points.some((point) => point.date === this.data.selectedDate) ? this.data.selectedDate : projection.points[projection.points.length - 1].date) : '';
     const pointOptions = projection.valid ? projection.points.filter((point, index) => index === 0 || index === projection.points.length - 1 || index % 10 === 0).map((point) => ({ date: point.date, label: point.date.slice(5) })) : [];
     let simulation={};
@@ -49,6 +58,7 @@ Page(withAccountView({
     }
     this.setData({
       ...simulation,skin, skinClass: `skin-${skin.id}`, projection, summary, selectedDate, pointOptions, trajectory: chartPoints(projection),
+      simulationConditions, simulationConditionIds: simulationConditions.map(item => item.id), simulationConditionLabels: simulationConditions.map(item => item.label), simulationConditionIndex,
       touchLabel: summary.status === 'unknown' ? '待确认' : summary.reserveTouchDate || `超过 ${this.data.rangeDays} 天`,
       endBalanceLabel: summary.status === 'unknown' ? '待确认' : moneyFromCents(summary.rangeEndBalanceCents)
     }, () => { this.refreshPoint(); this.refreshLookup(); this.drawActiveChart(); });
@@ -111,19 +121,44 @@ Page(withAccountView({
     this.selectLookupDate(points[index].date);
     this.setData({ lookupResult: `首次达到 · ${this.data.lookupResult}` });
   },
-  setSimulationDaily(event) { this.setData({ simulationDaily: event.detail.value, simulationError: '' }); },
-  runSimulation() {
-    const amount = Number(this.data.simulationDaily);
-    const state = store.load();
-    const condition = state.cashReality.conditions.find((item) => item.type === 'daily_floor');
-    if (!condition || !Number.isFinite(amount) || amount <= 0) return this.setData({ simulationError: '请填写大于 0 的每日支出' });
+  setSimulationName(event) { this.setData({ simulationName: event.detail.value, simulationError: '' }); },
+  setSimulationAmount(event) { this.setData({ simulationAmount: event.detail.value, simulationError: '' }); },
+  setSimulationType(event) {
+    const index = Number(event.detail.value);
+    const simulationType = this.data.simulationTypeValues[index] || 'income_once';
+    const simulationConditions = scenarioConditionOptions(store.load().cashReality.conditions, simulationType);
+    this.setData({ simulationTypeIndex: index, simulationType, simulationConditions, simulationConditionIds: simulationConditions.map(item => item.id), simulationConditionLabels: simulationConditions.map(item => item.label), simulationConditionIndex: 0, simulationError: '' });
+  },
+  setSimulationFrequency(event) {
+    const index = Number(event.detail.value);
+    this.setData({ simulationFrequencyIndex: index, simulationFrequency: this.data.simulationFrequencyValues[index] || 'monthly', simulationError: '' });
+  },
+  setSimulationCondition(event) { this.setData({ simulationConditionIndex: Number(event.detail.value) || 0, simulationError: '' }); },
+  setSimulationDate(event) { this.setData({ simulationDate: event.detail.value, simulationError: '' }); },
+  addSimulationOperation() {
+    const draft = { type: this.data.simulationType, name: this.data.simulationName, amount: this.data.simulationAmount, date: this.data.simulationDate, frequency: this.data.simulationFrequency, conditionId: this.data.simulationConditionIds[this.data.simulationConditionIndex] };
     try {
-      const patch = createScenarioPatch({ baseSnapshotId: this.data.projection.engineVersion, changes: [{ conditionId: condition.id, field: 'amount', value: amount }] });
+      const operation = buildScenarioOperation(draft, this.data.simulationConditions);
+      const label = describeScenarioOperation(operation, store.load().cashReality);
+      this.setData({ simulationOperations: [...this.data.simulationOperations, { ...operation, label }], simulationName: '', simulationAmount: '', simulationError: '', simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟' });
+    } catch (error) { this.setData({ simulationError: error.message || '请检查这项变化' }); }
+  },
+  removeSimulationOperation(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({ simulationOperations: this.data.simulationOperations.filter((_, itemIndex) => itemIndex !== index), simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟' });
+  },
+  runSimulation() {
+    const state = store.load();
+    if (!this.data.projection || !this.data.projection.valid) return this.setData({ simulationError: '先确认现金起点、保留金额和日常支出' });
+    if (!this.data.simulationOperations.length) return this.setData({ simulationError: '先添加至少一项变化' });
+    try {
+      const operations = this.data.simulationOperations.map(({ label, ...operation }) => operation);
+      const patch = createScenarioPatch({ baseSnapshotId: this.data.projection.engineVersion, operations });
       const result = runScenarioPatch(state.cashReality, patch, { asOf: today(), horizonDays: this.data.rangeDays });
       this.setData(simulationView(result));
     } catch (error) { this.setData({ simulationError: error.message || '模拟没有完成' }); }
   },
-  discardSimulation() { this.setData({ simulationDaily: '', simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '' }); },
+  discardSimulation() { this.setData({ simulationName: '', simulationAmount: '', simulationOperations: [], simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '' }); },
   async saveSimulation() {
     if (!this.data.simulationResult) return this.setData({ simulationError: '请先运行一次模拟' });
     const result = await store.saveV8Scenario(this.data.simulationResult.patch);

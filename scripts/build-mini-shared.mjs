@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-for (const [name, expectedExports, targetName = name] of [['forecast-lookup',4],['account-sync-loop',1],['account-sync-client',1],['account-sync-transport',1],['account-controller',1],['wechat-account-session',1],['v8-cash-reality',16],['v9-condition-identity',4],['v12-reality-capture',9,'v12-reality-capture-shared'],['state-envelope',2],['account-confirmation',2],['v8-legacy-adapter',2],['portable-backup',3]]) {
+for (const [name, expectedExports, targetName = name] of [['forecast-lookup',4],['account-sync-loop',1],['account-sync-client',1],['account-sync-transport',1],['account-controller',1],['wechat-account-session',1],['v8-cash-reality',16],['v9-condition-identity',4],['v12-reality-capture',9,'v12-reality-capture-shared'],['state-envelope',2],['account-confirmation',2],['v8-legacy-adapter',2],['portable-backup',3],['scenario-composer',2]]) {
 const source = new URL(`../src/${name}.js`, import.meta.url);
 const target = new URL(`../miniprogram/core/${targetName}.js`, import.meta.url);
 const text = readFileSync(source, 'utf8').replace(/\r\n/g, '\n');

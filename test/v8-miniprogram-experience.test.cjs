@@ -50,7 +50,7 @@ test('mini store records typed V8 events without discarding legacy history', () 
 test('future page exposes trajectory, point explanation and isolated simulation', () => {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) assert.equal(fs.existsSync(path.join(root, 'miniprogram/pages/future', `index.${extension}`)), true);
   const wxml = read('miniprogram/pages/future/index.wxml');
-  for (const marker of ['现金未来轨迹', '预计触及保留金', '点位解释', '期初余额', '期末余额', '模拟一个变化', '不会修改现实', '放弃模拟', '保存模拟草稿']) assert.match(wxml, new RegExp(marker));
+  for (const marker of ['现金未来轨迹', '预计触及保留金', '点位解释', '期初余额', '期末余额', '组合试算', '试算不会修改已确认的现实', '放弃模拟', '保存模拟草稿']) assert.match(wxml, new RegExp(marker));
   assert.doesNotMatch(wxml, /应用为现实|可能收入/);
 });
 

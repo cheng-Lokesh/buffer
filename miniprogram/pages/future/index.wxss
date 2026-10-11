@@ -31,8 +31,15 @@
 .equation-grid strong { font-size: 23rpx; }
 .equation-result { grid-column: 1 / -1; }
 .evidence-count { margin-top: 12rpx; font-size: 21rpx; opacity: .62; }
-.simulation-card { padding: 18rpx; }
-.simulation-card .field { margin-top: 0; }
+.simulation-card { height: calc(100vh - 352rpx - env(safe-area-inset-bottom)); min-height: 0; box-sizing: border-box; padding: 18rpx; }
+.simulation-builder { display: grid; gap: 12rpx; }
+.simulation-builder input { min-height: 76rpx; margin-top: 8rpx; }
+.simulation-builder .lookup-picker { min-height: 76rpx; justify-content: flex-start; padding: 0 20rpx; font-size: 24rpx; }
+.simulation-add { width: 100%; min-height: 82rpx; margin-top: 2rpx; }
+.simulation-operations { display: grid; gap: 8rpx; margin-top: 14rpx; }
+.simulation-operation { display: flex; align-items: center; justify-content: space-between; gap: 10rpx; padding: 12rpx; border: 1rpx solid rgba(80,110,150,.28); border-radius: 12rpx; }
+.simulation-operation text { flex: 1; min-width: 0; font-size: 23rpx; line-height: 1.4; }
+.simulation-operation button { flex: none; min-height: 56rpx; padding: 0 14rpx; font-size: 22rpx; }
 .simulation-run { width: 100%; margin-top: 14rpx; }
 .simulation-result { display: grid; grid-template-columns: 1fr 1fr; gap: 10rpx; margin-top: 14rpx; }
 .simulation-result > view { padding: 12rpx; background: rgba(255,255,255,.36); }

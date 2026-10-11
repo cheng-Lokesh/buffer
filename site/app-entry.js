@@ -1,6 +1,7 @@
 import { createV12_1RealityParser } from '../src/v12-1-browser-adapter.js';
 import { buildRealityCaptureContext, commitRealityCapture, validateRealityCandidates } from '../src/v12-reality-capture.js';
-import { buildCashRealityProjection, buildNowSummary, buildExpectedOccurrences, captureTemporalMemory, normalizeCashReality, createScenarioPatch, runScenarioPatch, saveScenarioDraft } from '../src/v8-cash-reality.js';
+import { buildCashRealityProjection, buildNowSummary, buildExpectedOccurrences, captureTemporalMemory, normalizeCashReality, createScenarioPatch, runScenarioPatch, saveScenarioDraft, describeScenarioOperation } from '../src/v8-cash-reality.js';
+import { buildScenarioOperation, scenarioConditionOptions } from '../src/scenario-composer.js';
 import { adaptLegacyCashToV8Reality } from '../src/v8-legacy-adapter.js';
 import { buildProductStateEnvelope } from '../src/state-envelope.js';
 import { persistProductState } from '../src/product-persistence.js';
@@ -858,17 +859,83 @@ function openOccurrenceChange(id, mode) {
 }
 
 function openScenario() {
-  const layer = modal(`<header><div><span>试算变化</span><h2>看看另一种可能</h2><p>试算只供查看，不会修改已确认的记录。</p></div><button type="button" data-close aria-label="关闭">×</button></header><form class="live-form"><label>收支名称<input name="name" value="一次假设变化" required></label><label>类型<select name="cashflow"><option value="expense">支出</option><option value="income">收入</option></select></label><label>金额<input name="amount" inputmode="decimal" required></label><label>日期<input name="date" type="date" value="${today()}" required></label><footer><button class="live-primary" type="submit">查看试算结果</button></footer></form>`, '试算变化');
-  layer.querySelector('form').addEventListener('submit', (event) => {
-    event.preventDefault();
-    const form = Object.fromEntries(new FormData(event.currentTarget));
+  const types = [
+    ['income_once', '增加一次收入'], ['expense_once', '增加一次支出'],
+    ['income_recurring', '新增周期收入'], ['expense_recurring', '新增周期支出'],
+    ['change_amount', '调整已有金额'], ['pause_condition', '暂停一项条件']
+  ];
+  const conditions = scenarioConditionOptions(state.cashReality.conditions);
+  const layer = modal(`<header><div><span>试算变化</span><h2>组合几项变化</h2><p>添加一项或多项假设，只影响预测，不会改动已确认记录。</p></div><button type="button" data-close aria-label="关闭">×</button></header>
+    <form class="live-form" data-role="scenario-form">
+      <label>变化类型<select id="scenario-type" name="type">${types.map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label>
+      <div data-scenario-group="cashflow"><label>名称<input name="name" placeholder="例如：奖金、房租"></label><label>金额（元）<input name="amount" inputmode="decimal" placeholder="输入金额"></label><label>日期<input name="date" type="date" value="${today()}"></label></div>
+      <label data-scenario-group="frequency" hidden>重复频率<select name="frequency"><option value="monthly">每月</option><option value="weekly">每周</option><option value="daily">每天</option></select></label>
+      <div data-scenario-group="condition" hidden><label>已有条件<select name="conditionId">${conditions.map((item)=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('')}</select></label><label data-scenario-group="amount" hidden>调整后金额（元）<input name="conditionAmount" inputmode="decimal" placeholder="输入金额"></label><label data-scenario-group="pause-date" hidden>从哪天起暂停<input name="effectiveDate" type="date" value="${today()}"></label></div>
+      <label>这组试算的名称<input name="scenarioName" value="我的试算" maxlength="40"></label>
+      <button id="add-scenario-operation" type="button">＋ 添加这项变化</button>
+      <div data-role="scenario-operations" aria-live="polite"><p class="live-message">还没有添加变化</p></div>
+      <p class="live-message" data-role="scenario-error" role="status"></p>
+      <footer><button class="live-primary" type="submit">查看组合结果</button></footer>
+    </form>`, '组合试算');
+  const form = layer.querySelector('[data-role="scenario-form"]');
+  const scenarioOperations = [];
+  const error = layer.querySelector('[data-role="scenario-error"]');
+  const fields = () => Object.fromEntries(new FormData(form));
+  const syncFields = () => {
+    const type = form.elements.type.value;
+    const recurring = type.endsWith('_recurring');
+    const isCashflow = ['income_once','expense_once','income_recurring','expense_recurring'].includes(type);
+    const isCondition = ['change_amount','pause_condition'].includes(type);
+    form.querySelector('[data-scenario-group="cashflow"]').hidden = !isCashflow;
+    form.querySelector('[data-scenario-group="frequency"]').hidden = !recurring;
+    form.querySelector('[data-scenario-group="condition"]').hidden = !isCondition;
+    form.querySelector('[data-scenario-group="amount"]').hidden = type !== 'change_amount';
+    form.querySelector('[data-scenario-group="pause-date"]').hidden = type !== 'pause_condition';
+    const conditionSelect = form.elements.conditionId;
+    if (isCondition) {
+      const selected = conditionSelect.value;
+      const available = scenarioConditionOptions(state.cashReality.conditions, type);
+      conditionSelect.innerHTML = available.map((item)=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('') || '<option value="">没有可选条件</option>';
+      if (available.some((item)=>item.id===selected)) conditionSelect.value = selected;
+    }
+  };
+  const paintOperations = () => {
+    const list = layer.querySelector('[data-role="scenario-operations"]');
+    list.innerHTML = scenarioOperations.length
+      ? scenarioOperations.map((item,index)=>`<div class="scenario-operation-row"><span>${index+1}. ${escapeHtml(item.label)}</span><button type="button" data-remove-scenario="${index}">移除</button></div>`).join('')
+      : '<p class="live-message">还没有添加变化</p>';
+  };
+  form.elements.type.addEventListener('change', syncFields);
+  layer.querySelector('#add-scenario-operation').addEventListener('click', () => {
+    const formValues = fields();
     try {
-      const patch = createScenarioPatch({ name: form.name, createdAt: nowIso(), operations: [{ type: 'add_one_off', name: form.name, cashflow: form.cashflow, amount: Number(form.amount), occurredAt: form.date }] });
+      const draft = { type: formValues.type, name: formValues.name, amount: formValues.amount, date: formValues.date, frequency: formValues.frequency, conditionId: formValues.conditionId };
+      if (formValues.type === 'change_amount') draft.amount = formValues.conditionAmount;
+      if (formValues.type === 'pause_condition') draft.date = formValues.effectiveDate;
+      const operation = buildScenarioOperation(draft, state.cashReality.conditions);
+      scenarioOperations.push({ ...operation, label: describeScenarioOperation(operation, state.cashReality) });
+      error.textContent = '';
+      paintOperations();
+    } catch (cause) { error.textContent = cause instanceof Error ? cause.message : '请检查这项变化。'; }
+  });
+  layer.querySelector('[data-role="scenario-operations"]').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-remove-scenario]');
+    if (!button) return;
+    scenarioOperations.splice(Number(button.dataset.removeScenario), 1);
+    paintOperations();
+  });
+  syncFields();
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = fields();
+    try {
+      if (!scenarioOperations.length) throw new Error('先添加至少一项变化。');
+      const patch = createScenarioPatch({ name: form.scenarioName, createdAt: nowIso(), operations: scenarioOperations.map(({ label, ...operation }) => operation) });
       scenarioResult = runScenarioPatch(state.cashReality, patch, { asOf: today(), horizonDays: futureHorizon });
       layer.remove();
       document.querySelector('.nav-item[data-page="future"]')?.click();
       renderFuture();
-    } catch (error) { showMessage(layer, error instanceof Error ? error.message : '模拟内容无效。'); }
+    } catch (cause) { error.textContent = cause instanceof Error ? cause.message : '模拟内容无效。'; }
   });
 }
 

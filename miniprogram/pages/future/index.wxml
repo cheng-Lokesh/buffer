@@ -24,8 +24,30 @@
       <view class="surface future-unknown" wx:else><view class="section-title">暂无可解释点位</view><view class="muted">先确认基础条件。</view></view>
     </view></swiper-item>
     <swiper-item><view class="scene-slide">
-      <view class="scene-heading"><view><view class="section-title">模拟一个变化</view><view class="muted">只在沙盘中计算，不会修改现实</view></view><view class="scene-index">03</view></view>
-      <view class="surface simulation-card"><view class="field"><view class="field-label"><text>如果每日支出变为</text><text class="muted">元/天</text></view><input class="input number" type="digit" value="{{simulationDaily}}" placeholder="输入一个假设数字" bindinput="setSimulationDaily" /></view><button class="primary simulation-run" bindtap="runSimulation">查看模拟结果</button><view class="simulation-result" wx:if="{{simulationResult}}"><view><text>可支撑天数变化</text><strong>{{simulationDaysLabel}}</strong></view><view><text>区间末余额变化</text><strong>{{simulationBalanceLabel}}</strong></view></view><view class="field-error" wx:if="{{simulationError}}">{{simulationError}}</view><view class="button-row simulation-actions"><button class="secondary" bindtap="discardSimulation">放弃模拟</button><button class="secondary" bindtap="saveSimulation">保存模拟草稿</button></view><view class="simulation-boundary">模拟永远不会自动写入现实条件。</view></view>
+      <view class="scene-heading"><view><view class="section-title">组合试算</view><view class="muted">一次叠加多项变化</view></view><view class="scene-index">03</view></view>
+      <scroll-view class="surface simulation-card" scroll-y="true" show-scrollbar="false">
+        <view class="simulation-builder">
+          <picker id="simulation-type" mode="selector" range="{{simulationTypes}}" value="{{simulationTypeIndex}}" bindchange="setSimulationType"><view class="lookup-picker">{{simulationTypes[simulationTypeIndex]}} ▾</view></picker>
+          <view wx:if="{{simulationType === 'income_once' || simulationType === 'expense_once' || simulationType === 'income_recurring' || simulationType === 'expense_recurring'}}">
+            <input class="input" value="{{simulationName}}" placeholder="名称，例如：奖金、房租" bindinput="setSimulationName" aria-label="变化名称" />
+            <input class="input number" type="digit" value="{{simulationAmount}}" placeholder="金额（元）" bindinput="setSimulationAmount" aria-label="变化金额" />
+            <picker mode="date" value="{{simulationDate}}" bindchange="setSimulationDate"><view class="lookup-picker">{{simulationDate}} ▾</view></picker>
+            <picker id="simulation-frequency" wx:if="{{simulationType === 'income_recurring' || simulationType === 'expense_recurring'}}" mode="selector" range="{{simulationFrequencyLabels}}" value="{{simulationFrequencyIndex}}" bindchange="setSimulationFrequency"><view class="lookup-picker">{{simulationFrequencyLabels[simulationFrequencyIndex]}}重复 ▾</view></picker>
+          </view>
+          <view wx:elif="{{simulationType === 'change_amount' || simulationType === 'pause_condition'}}">
+            <picker mode="selector" range="{{simulationConditionLabels}}" value="{{simulationConditionIndex}}" bindchange="setSimulationCondition"><view class="lookup-picker">{{simulationConditionLabels[simulationConditionIndex] || '没有可选条件'}} ▾</view></picker>
+            <input wx:if="{{simulationType === 'change_amount'}}" class="input number" type="digit" value="{{simulationAmount}}" placeholder="改为多少（元）" bindinput="setSimulationAmount" aria-label="假设条件金额" />
+            <picker wx:else mode="date" value="{{simulationDate}}" bindchange="setSimulationDate"><view class="lookup-picker">从 {{simulationDate}} 起暂停 ▾</view></picker>
+          </view>
+          <button id="add-simulation-operation" class="secondary simulation-add" bindtap="addSimulationOperation">＋ 添加这项变化</button>
+        </view>
+        <view id="simulation-operations" class="simulation-operations" wx:if="{{simulationOperations.length}}"><view class="simulation-operation" wx:for="{{simulationOperations}}" wx:key="index"><text>{{index + 1}}. {{item.label}}</text><button class="remove-simulation-operation" data-index="{{index}}" bindtap="removeSimulationOperation" aria-label="移除这项变化">移除</button></view></view>
+        <button class="primary simulation-run" bindtap="runSimulation">查看组合结果</button>
+        <view class="simulation-result" wx:if="{{simulationResult}}"><view><text>可支撑时间变化</text><strong>{{simulationDaysLabel}}</strong></view><view><text>区间末余额变化</text><strong>{{simulationBalanceLabel}}</strong></view></view>
+        <view class="field-error" wx:if="{{simulationError}}">{{simulationError}}</view>
+        <view class="button-row simulation-actions"><button class="secondary" bindtap="discardSimulation">放弃模拟</button><button class="secondary" bindtap="saveSimulation">保存模拟草稿</button></view>
+        <view class="simulation-boundary">试算不会修改已确认的现实。</view>
+      </scroll-view>
     </view></swiper-item>
   </swiper>
 </view>

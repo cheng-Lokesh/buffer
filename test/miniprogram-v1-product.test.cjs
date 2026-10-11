@@ -194,7 +194,7 @@ test('native page contracts prioritize observation and expose honest chart fallb
   const history = read('miniprogram/pages/history/index.wxml');
 
   for (const marker of ['data-skin', '现金构成', '最近确认']) assert.match(reality, new RegExp(marker));
-  for (const marker of ['现金未来轨迹', '预计触及保留金', '点位解释', '模拟一个变化']) assert.match(future, new RegExp(marker));
+  for (const marker of ['现金未来轨迹', '预计触及保留金', '点位解释', '组合试算']) assert.match(future, new RegExp(marker));
   for (const marker of ['现金起点', '固定收支', '已知未来事件']) assert.match(conditions, new RegExp(marker));
   assert.match(history, /本人确认/);
   assert.match(history, /六套皮肤/);
