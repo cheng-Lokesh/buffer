@@ -21,6 +21,23 @@ test('sync preflight permits only explicit bearer JSON GET/POST; hostile headers
     const response=await fetch(base+'/api/account/sync',{method:'POST',headers:{origin,authorization:'Bearer fixture','content-type':'application/json'},body:'{}'});assert.equal(response.status,200);assert.equal(response.headers.get('set-cookie'),null);assert.equal(response.headers.get('access-control-allow-origin'),origin);
   });assert.equal(calls,1);
 });
+test('HTTP gateway prefix stripping normalizes only the explicit sync and pairing paths',async()=>{
+  await run({
+    handleSync:async()=>Response.json({fixture:true}),
+    handlePair:async()=>Response.json({pending:true},{status:202})
+  },async base=>{
+    assert.equal((await fetch(base+'/account/sync')).status,401);
+    const syncPreflight=await fetch(base+'/account/sync',{method:'OPTIONS',headers:{origin,'access-control-request-method':'POST','access-control-request-headers':'authorization, content-type'}});
+    assert.equal(syncPreflight.status,204);
+    assert.equal((await fetch(base+'/auth/browser/create')).status,405);
+    const pairPreflight=await fetch(base+'/auth/browser/create',{method:'OPTIONS',headers:{origin,'access-control-request-method':'POST','access-control-request-headers':'authorization, content-type'}});
+    assert.equal(pairPreflight.status,204);
+    assert.equal((await fetch(base+'/auth/browser/approve',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'})).status,401);
+    assert.equal((await fetch(base+'/auth/browser/consume',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'})).status,202);
+    assert.equal((await fetch(base+'/auth/browser/unknown')).status,404);
+    assert.equal((await fetch(base+'/account/other')).status,404);
+  });
+});
 test('sync host errors are sanitized without weakening existing login route',async()=>{
   await run({handleSync:async()=>{throw Error('private financial fact');}},async base=>{
     const failed=await fetch(base+'/api/account/sync',{headers:{authorization:'Bearer fixture'}});assert.equal(failed.status,503);assert.deepEqual(await failed.json(),{code:'sync_unavailable'});
