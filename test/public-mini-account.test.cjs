@@ -1,0 +1,34 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const {createRequire}=require('node:module');
+const miniRequire=createRequire(require('node:path').resolve('miniprogram/app.js'));
+function appFixture({failed=false}={}) {
+  let app;const calls=[];
+  const wx={login(options){calls.push({kind:'login',timeout:options.timeout});
+    if(failed)options.fail({errMsg:'private failure'});else options.success({code:'fixture-code'});},
+    request(options){calls.push({kind:'request',url:options.url,timeout:options.timeout});
+      if(options.url.endsWith('/api/auth/wechat'))options.success({statusCode:200,data:{ticket:'ticket'}});
+      else if(options.url.endsWith('/user/me'))options.success({statusCode:200,data:{sub:'fixture-account'}});
+      else options.success({statusCode:200,data:{sub:'fixture-account',access_token:'fixture-access',refresh_token:'fixture-refresh',expires_in:120}});
+    },getStorageSync(){throw Error('must not read legacy data');},setStorageSync(){throw Error('must not persist token');}};
+  vm.runInNewContext(fs.readFileSync('miniprogram/app.js','utf8'),{App:value=>app=value,wx,require:miniRequire});
+  return {app,calls};
+}
+test('application loads signed out with no hidden request, storage access or legacy upload',()=>{
+  const f=appFixture();assert.equal(typeof f.app.loginWechat,'function');
+  assert.equal(f.app.accountStatus().phase,'signed_out');assert.equal(f.calls.length,0);
+  assert.ok(!JSON.stringify(f.app.globalData).includes('fixture-access'));
+});
+test('explicit login uses native wx transport and logout clears session',async()=>{
+  const f=appFixture();const result=await f.app.loginWechat();assert.equal(result.phase,'signed_in');
+  assert.equal(f.calls.length,4);assert.ok(f.calls.every(call=>call.timeout===10000));
+  assert.equal(await f.app.getAccountAccessToken(),'fixture-access');
+  f.app.logoutAccount();assert.equal(f.app.accountStatus().phase,'signed_out');
+  await assert.rejects(f.app.getAccountAccessToken(),/authentication_required/);
+});
+test('native platform failure is recoverable and does not expose provider error text',async()=>{
+  const f=appFixture({failed:true});await assert.rejects(f.app.loginWechat(),/^Error: login_unavailable$/);
+  assert.equal(f.app.accountStatus().phase,'login_failed');assert.equal(f.calls.length,1);
+});
