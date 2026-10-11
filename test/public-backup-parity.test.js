@@ -17,6 +17,7 @@ test('web to native to web preserves facts, historical snapshots and non-rendere
   const source=fixture(),before=structuredClone(source);
   const parsed=transfer.importBackup({...source,exportedAt:stamp});assert.equal(parsed.ok,true);
   const saved=native.normalizeState(parsed.state);
+  assert.equal(saved.changes.length,1,'normalized legacy record must survive local save');
   const backup=transfer.createBackup(saved,stamp);
   const result=shared.preparePortableBackup(backup);assert.equal(result.ok,true);
   for(const key of ['cashReality','records','legacyArchive'])assert.deepEqual(result.payload[key],source[key]);
@@ -53,4 +54,10 @@ test('a current web backup with only confirmed Reality needs no obsolete cash mi
   const result=transfer.importBackup(source);assert.equal(result.ok,true);assert.equal(result.state.cash.balance,5000);assert.equal(result.state.cash.daily,20);
   assert.equal(shared.preparePortableBackup(null).ok,false);
   assert.equal(shared.preparePortableBackup([]).ok,false);
+});
+test('object-shaped archived context remains portable without reviving old user interfaces',()=>{
+  assert.ok(shared);const source={...fixture(),actionThreads:{version:1,threads:[]},phaseState:{phase:'old'},longitudinalEvidence:{usageDays:[],incidents:[]},v5Experience:{interactionMoments:[]}};
+  const parsed=transfer.importBackup(source);assert.equal(parsed.ok,true);
+  const result=shared.preparePortableBackup(transfer.createBackup(parsed.state,stamp));assert.equal(result.ok,true);
+  for(const key of ['actionThreads','phaseState','longitudinalEvidence','v5Experience'])assert.deepEqual(result.payload[key],source[key]);
 });
