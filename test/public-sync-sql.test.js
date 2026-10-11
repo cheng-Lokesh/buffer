@@ -46,7 +46,7 @@ test('durable account RPCs enforce ownership, atomic CAS, receipts, tombstones a
     assert.deepEqual(await as('fixture-user',receipt,[key,2,1,0,id]),{stale:false,receipt:null});
     assert.deepEqual(await as('fixture-user',receipt,[key,2,1,0,deleteId]),{stale:false,receipt:{digest:'e'.repeat(64),result:deleted}});
     assert.equal(await as('fixture-user',commit,[key,1,0,next,id,'c'.repeat(64),next]),false);
-    await assert.rejects(db.exec(sql),/account_sync_migration_conflict/);
+    await assert.rejects(db.exec(sql),/account_sync_migration_conflict/);await db.exec('ROLLBACK');
     assert.deepEqual(await as('fixture-user',read,[key]),deleted,'a repeated install must reject without changing the tombstone');
     for(const bad of [{revision:3,deletionGeneration:3,state:null},{revision:3,deletionGeneration:1,state:[]},{revision:3,deletionGeneration:1,state:null}])
       await assert.rejects(as('fixture-user',commit,[key,2,1,bad,'fixture-invalid-0001','f'.repeat(64),bad]),/sync_invalid/);
@@ -70,7 +70,7 @@ test('account sync SQL refuses pre-existing schemas and RPCs without replacing t
         CREATE FUNCTION auth.uid() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub' $$;
         CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role' $$;`);
       await db.exec(collision.setup);
-      await assert.rejects(db.exec(sql),/account_sync_migration_conflict/,collision.name);
+      await assert.rejects(db.exec(sql),/account_sync_migration_conflict/,collision.name);await db.exec('ROLLBACK');
       await collision.check(db);
     }finally{await db.close();}
   }

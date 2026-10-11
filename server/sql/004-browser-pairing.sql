@@ -4,13 +4,27 @@
 -- Approval owner must first be established by fresh WeChat exchange + provider
 -- profile verification in the HTTP service; no client owner is accepted there.
 BEGIN;
-CREATE SCHEMA IF NOT EXISTS buffer_pair_private;
-CREATE TABLE IF NOT EXISTS buffer_pair_private.config (
+-- Reject any same-named schema/table/function instead of silently adopting or
+-- replacing objects from an unknown or partial prior installation.
+DO $$ BEGIN
+  IF pg_catalog.to_regnamespace('buffer_pair_private') IS NOT NULL
+    OR pg_catalog.to_regclass('buffer_pair_private.config') IS NOT NULL
+    OR pg_catalog.to_regclass('buffer_pair_private.challenges') IS NOT NULL
+    OR pg_catalog.to_regclass('buffer_pair_private.buffer_pair_expiry') IS NOT NULL
+    OR pg_catalog.to_regprocedure('buffer_pair_private.authorize(text)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.buffer_pair_create(text,text,text,text)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.buffer_pair_approve(text,text,text,text)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.buffer_pair_consume(text,text,text)') IS NOT NULL THEN
+    RAISE EXCEPTION 'browser_pairing_migration_conflict';
+  END IF;
+END $$;
+CREATE SCHEMA buffer_pair_private;
+CREATE TABLE buffer_pair_private.config (
   singleton boolean PRIMARY KEY CHECK(singleton),
   backend_key text NOT NULL CHECK(backend_key ~ '^[a-f0-9]{64}$'),
   service_user_id text NOT NULL CHECK(service_user_id ~ '^[A-Za-z0-9_-]{1,128}$')
 );
-CREATE TABLE IF NOT EXISTS buffer_pair_private.challenges (
+CREATE TABLE buffer_pair_private.challenges (
   challenge_hash text PRIMARY KEY CHECK(challenge_hash ~ '^[a-f0-9]{64}$'),
   code_hash text UNIQUE NOT NULL CHECK(code_hash ~ '^[a-f0-9]{64}$'),
   browser_hash text NOT NULL CHECK(browser_hash ~ '^[a-f0-9]{64}$'),
@@ -20,11 +34,11 @@ CREATE TABLE IF NOT EXISTS buffer_pair_private.challenges (
   CHECK((account_id IS NULL AND sealed_grant IS NULL) OR
     (account_id ~ '^[A-Za-z0-9_-]{1,128}$' AND octet_length(sealed_grant) BETWEEN 1 AND 24576))
 );
-CREATE INDEX IF NOT EXISTS buffer_pair_expiry ON buffer_pair_private.challenges(expires_at);
+CREATE INDEX buffer_pair_expiry ON buffer_pair_private.challenges(expires_at);
 REVOKE ALL ON SCHEMA buffer_pair_private FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON ALL TABLES IN SCHEMA buffer_pair_private FROM PUBLIC,anon,authenticated;
 
-CREATE OR REPLACE FUNCTION buffer_pair_private.authorize(p_key text)
+CREATE FUNCTION buffer_pair_private.authorize(p_key text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE cfg buffer_pair_private.config%ROWTYPE;
 BEGIN
@@ -37,7 +51,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION buffer_pair_private.authorize(text) FROM PUBLIC,anon,authenticated;
 
-CREATE OR REPLACE FUNCTION public.buffer_pair_create(p_key text,p_challenge text,p_code text,p_browser text)
+CREATE FUNCTION public.buffer_pair_create(p_key text,p_challenge text,p_code text,p_browser text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE inserted integer;
 BEGIN
@@ -60,7 +74,7 @@ BEGIN
   RETURN inserted=1;
 END $$;
 
-CREATE OR REPLACE FUNCTION public.buffer_pair_approve(p_key text,p_code text,p_owner text,p_sealed text)
+CREATE FUNCTION public.buffer_pair_approve(p_key text,p_code text,p_owner text,p_sealed text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE changed integer;
 BEGIN
@@ -76,7 +90,7 @@ BEGIN
   RETURN changed=1;
 END $$;
 
-CREATE OR REPLACE FUNCTION public.buffer_pair_consume(p_key text,p_challenge text,p_browser text)
+CREATE FUNCTION public.buffer_pair_consume(p_key text,p_challenge text,p_browser text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE item buffer_pair_private.challenges%ROWTYPE;
 BEGIN

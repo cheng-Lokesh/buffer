@@ -2,19 +2,32 @@
 -- Backend key stays on the server; callers additionally need their own user JWT.
 -- No owner argument: auth.uid() is the only account selector.
 BEGIN;
-CREATE SCHEMA IF NOT EXISTS buffer_sync_private;
-CREATE TABLE IF NOT EXISTS buffer_sync_private.config (
+-- Never adopt or replace same-named objects from an unknown/partial install.
+DO $$ BEGIN
+  IF pg_catalog.to_regnamespace('buffer_sync_private') IS NOT NULL
+    OR pg_catalog.to_regclass('buffer_sync_private.config') IS NOT NULL
+    OR pg_catalog.to_regclass('buffer_sync_private.accounts') IS NOT NULL
+    OR pg_catalog.to_regclass('buffer_sync_private.receipts') IS NOT NULL
+    OR pg_catalog.to_regprocedure('buffer_sync_private.owner(text)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.buffer_sync_read(text)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.buffer_sync_receipt(text,bigint,bigint,bigint,text)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('public.buffer_sync_commit(text,bigint,bigint,jsonb,text,text,jsonb)') IS NOT NULL THEN
+    RAISE EXCEPTION 'account_sync_migration_conflict';
+  END IF;
+END $$;
+CREATE SCHEMA buffer_sync_private;
+CREATE TABLE buffer_sync_private.config (
   singleton boolean PRIMARY KEY CHECK(singleton),
   backend_key text NOT NULL CHECK(backend_key ~ '^[a-f0-9]{64}$'),
   service_user_id text NOT NULL CHECK(service_user_id ~ '^[A-Za-z0-9_-]{1,128}$')
 );
-CREATE TABLE IF NOT EXISTS buffer_sync_private.accounts (
+CREATE TABLE buffer_sync_private.accounts (
   account_id text PRIMARY KEY,
   revision bigint NOT NULL CHECK(revision BETWEEN 0 AND 9007199254740990),
   deletion_generation bigint NOT NULL CHECK(deletion_generation BETWEEN 0 AND 9007199254740990),
   state jsonb CHECK(state IS NULL OR (jsonb_typeof(state)='object' AND octet_length(state::text)<=1048576))
 );
-CREATE TABLE IF NOT EXISTS buffer_sync_private.receipts (
+CREATE TABLE buffer_sync_private.receipts (
   account_id text NOT NULL REFERENCES buffer_sync_private.accounts(account_id),
   generation bigint NOT NULL,
   operation_id text NOT NULL CHECK(operation_id ~ '^[A-Za-z0-9_-]{16,128}$'),
@@ -25,7 +38,7 @@ CREATE TABLE IF NOT EXISTS buffer_sync_private.receipts (
 REVOKE ALL ON SCHEMA buffer_sync_private FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON TABLE buffer_sync_private.config,buffer_sync_private.accounts,buffer_sync_private.receipts FROM PUBLIC,anon,authenticated;
 
-CREATE OR REPLACE FUNCTION buffer_sync_private.owner(p_key text)
+CREATE FUNCTION buffer_sync_private.owner(p_key text)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE cfg buffer_sync_private.config%ROWTYPE; uid text;
 BEGIN
@@ -39,7 +52,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION buffer_sync_private.owner(text) FROM PUBLIC,anon,authenticated;
 
-CREATE OR REPLACE FUNCTION public.buffer_sync_read(p_key text)
+CREATE FUNCTION public.buffer_sync_read(p_key text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE uid text; item buffer_sync_private.accounts%ROWTYPE;
 BEGIN
@@ -49,7 +62,7 @@ BEGIN
   RETURN jsonb_build_object('revision',item.revision,'deletionGeneration',item.deletion_generation,'state',item.state);
 END $$;
 
-CREATE OR REPLACE FUNCTION public.buffer_sync_receipt(p_key text,p_revision bigint,p_generation bigint,p_receipt_generation bigint,p_operation_id text)
+CREATE FUNCTION public.buffer_sync_receipt(p_key text,p_revision bigint,p_generation bigint,p_receipt_generation bigint,p_operation_id text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE uid text; item buffer_sync_private.accounts%ROWTYPE; receipt jsonb;
 BEGIN
@@ -67,7 +80,7 @@ BEGIN
   RETURN jsonb_build_object('stale',false,'receipt',receipt);
 END $$;
 
-CREATE OR REPLACE FUNCTION public.buffer_sync_commit(p_key text,p_revision bigint,p_generation bigint,p_next jsonb,p_operation_id text,p_digest text,p_result jsonb)
+CREATE FUNCTION public.buffer_sync_commit(p_key text,p_revision bigint,p_generation bigint,p_next jsonb,p_operation_id text,p_digest text,p_result jsonb)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE uid text; item buffer_sync_private.accounts%ROWTYPE; nr bigint; ng bigint; next_state jsonb;
 BEGIN

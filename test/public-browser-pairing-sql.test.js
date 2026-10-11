@@ -55,7 +55,7 @@ test('browser pairing is private, expiring, browser-bound and atomically one-use
     await assert.rejects(rpc('buffer_pair_approve',[key,code,'invalid owner','ticket']),/pair_invalid/);
     await assert.rejects(rpc('buffer_pair_approve',[key,code,'fixture-user','x'.repeat(24577)]),/pair_invalid/);
     await assert.rejects(db.exec('SET ROLE authenticated; SELECT * FROM buffer_pair_private.challenges'),/permission denied/);
-    await db.exec('RESET ROLE');await assert.rejects(db.exec(sql),/browser_pairing_migration_conflict/);
+    await db.exec('RESET ROLE');await assert.rejects(db.exec(sql),/browser_pairing_migration_conflict/);await db.exec('ROLLBACK');
     assert.equal(await rpc('buffer_pair_consume',[key,challenge,secret]),null,'reinstall cannot resurrect grants');
     assert.equal((await db.query("SELECT has_table_privilege('authenticated','buffer_pair_private.challenges','SELECT') AS allowed")).rows[0].allowed,false);
   } finally {await db.close();}
@@ -78,7 +78,7 @@ test('browser pairing SQL refuses pre-existing schemas and RPCs without replacin
         CREATE FUNCTION auth.uid() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub' $$;
         CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role' $$;`);
       await db.exec(collision.setup);
-      await assert.rejects(db.exec(sql),/browser_pairing_migration_conflict/,collision.name);
+      await assert.rejects(db.exec(sql),/browser_pairing_migration_conflict/,collision.name);await db.exec('ROLLBACK');
       await collision.check(db);
     }finally{await db.close();}
   }
