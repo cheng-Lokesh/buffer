@@ -96,7 +96,7 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
     }catch{return failure('备份无法预览，原数据未改动');}
   }
   async function restoreState(value,options){
-    if(localMode())return local.restoreState(value,options);
+    if(localMode())return options?.accountConfirmed||options?.preview?blocked():local.restoreState(value,options);
     const preview=options?.preview,record=preview&&restorePreviews.get(preview);
     if(options?.confirmed!==true||options?.accountConfirmed!==true||!record)return failure('账号备份需要先预览并确认上传范围，原数据未改动');
     try{
@@ -108,7 +108,7 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
     }catch{return failure('账号恢复未完成，请检查同步状态；原本机数据未改动');}
   }
   async function clear(options){
-    if(localMode())return local.clear(options);
+    if(localMode())return options?.accountConfirmed?blocked():local.clear(options);
     if(options?.confirmed!==true||options?.accountConfirmed!==true)return failure('请使用账号数据删除确认，原数据未改动');
     if(app().accountStatus().phase!=='signed_in')return blocked();
     const scope=currentScope();
