@@ -27,7 +27,7 @@ test('native JSON-only runtime exactly matches projections, multi-operation scen
   const options={asOf:'2026-12-28',horizonDays:90};const untouched=JSON.stringify(reality);
   const patch=web.createScenarioPatch({baseSnapshotId:'fixture',id:'scenario',createdAt:'2026-12-28T00:00:00Z',operations:[
     {type:'set_condition',conditionId:'daily',field:'amount',value:130.27},
-    {type:'add_one_off',direction:'expense',name:'fixture expense',amount:300.08,date:'2027-01-10'}
+    {type:'add_one_off',cashflow:'expense',name:'fixture expense',amount:300.08,occurredAt:'2027-01-10'}
   ]});
   assert.deepEqual(json(mini.runScenarioPatch(reality,patch,options)),json(web.runScenarioPatch(reality,patch,options)));
   assert.deepEqual(json(mini.buildCashRealityProjection(reality,options)),json(web.buildCashRealityProjection(reality,options)));
@@ -35,9 +35,9 @@ test('native JSON-only runtime exactly matches projections, multi-operation scen
 });
 test('temporal memory and draft lifecycle are available identically without native structuredClone',async()=>{
   const web=await import('../src/v8-cash-reality.js');const mini=nativeEngine();
-  const options={asOf:'2026-12-28',horizonDays:30,createdAt:'2026-12-28T00:00:00.000Z'};
+  const options={asOf:'2026-12-28',horizonDays:30,capturedAt:'2026-12-28T00:00:00.000Z',realitySnapshotId:'fixture-reality',forecastSnapshotId:'fixture-forecast'};
   assert.deepEqual(json(mini.captureTemporalMemory(reality,options)),json(web.captureTemporalMemory(reality,options)));
-  const patch=web.createScenarioPatch({id:'scenario',createdAt:options.createdAt,changes:[{conditionId:'daily',field:'amount',value:120}]});
+  const patch=web.createScenarioPatch({id:'scenario',createdAt:options.capturedAt,changes:[{conditionId:'daily',field:'amount',value:120}]});
   assert.deepEqual(json(mini.saveScenarioDraft(reality,patch)),json(web.saveScenarioDraft(reality,patch)));
   assert.deepEqual(json(mini.deleteScenarioDraft(reality,'missing')),json(web.deleteScenarioDraft(reality,'missing')));
 });
