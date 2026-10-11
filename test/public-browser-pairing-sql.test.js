@@ -41,6 +41,16 @@ test('browser pairing is private, expiring, browser-bound and atomically one-use
     await db.query("UPDATE buffer_pair_private.challenges SET expires_at=clock_timestamp()-interval '1 second' WHERE challenge_hash=$1",[expired[0]]);
     assert.equal(await rpc('buffer_pair_approve',[key,expired[1],'fixture-user','sealed-ticket']),false);
     assert.equal(await rpc('buffer_pair_consume',[key,expired[0],expired[2]]),null);
+    assert.equal(await rpc('buffer_pair_create',[key,'3'.repeat(64),'4'.repeat(64),'5'.repeat(64)]),true);
+    assert.equal(await rpc('buffer_pair_approve',[key,'4'.repeat(64),'fixture-user','sealed-ticket']),true);
+    await db.exec("UPDATE buffer_pair_private.challenges SET expires_at=clock_timestamp()-interval '1 second'");
+    assert.equal(await rpc('buffer_pair_consume',[key,'3'.repeat(64),'5'.repeat(64)]),null,'approved grants also expire');
+    assert.equal(await rpc('buffer_pair_create',[key,'6'.repeat(64),'7'.repeat(64),'8'.repeat(64)]),true);
+    assert.equal((await db.query('SELECT count(*)::integer AS n FROM buffer_pair_private.challenges')).rows[0].n,1,'creation removes expired encrypted grants');
+    await db.exec(`INSERT INTO buffer_pair_private.challenges(challenge_hash,code_hash,browser_hash,expires_at)
+      SELECT lpad(to_hex(n),64,'0'),lpad(to_hex(n+2000),64,'0'),'${secret}',clock_timestamp()+interval '2 minutes'
+      FROM generate_series(1,999) n`);
+    await assert.rejects(rpc('buffer_pair_create',[key,'9'.repeat(64),'a'.repeat(64),'b'.repeat(64)]),/pair_capacity/);
     await assert.rejects(rpc('buffer_pair_create',[key,'bad',code,secret]),/pair_invalid/);
     await assert.rejects(rpc('buffer_pair_approve',[key,code,'invalid owner','ticket']),/pair_invalid/);
     await assert.rejects(rpc('buffer_pair_approve',[key,code,'fixture-user','x'.repeat(24577)]),/pair_invalid/);
