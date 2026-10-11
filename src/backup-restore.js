@@ -4,6 +4,7 @@ import { normalizeLongitudinalEvidence } from './longitudinal-evidence.js';
 import { normalizeV5Experience } from './v5-personalization.js';
 import { normalizeActionThreadState } from './action-thread.js';
 import { normalizeCashReality } from './v8-cash-reality.js';
+import { preparePortableBackup } from './portable-backup.js';
 
 export const CURRENT_BACKUP_SCHEMA = 9;
 export const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
@@ -73,6 +74,11 @@ export function validateBackup(value, { fileSize = 0 } = {}) {
 }
 
 export function prepareBackupPreview(value, metadata = {}) {
+  if (value?.kind === 'buffer-zone-mini-backup') {
+    const portable = preparePortableBackup(value, metadata);
+    if (!portable.ok) return portable;
+    value = portable.payload;
+  }
   const validation = validateBackup(value, metadata);
   if (!validation.ok) return validation;
   const payload = { ...value };

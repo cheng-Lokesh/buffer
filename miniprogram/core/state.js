@@ -70,7 +70,8 @@ function normalizeState(value = {}) {
   const cashReality = source.cashReality && Array.isArray(source.cashReality.conditions)
     ? normalizeCashReality(source.cashReality)
     : realityFromCash(cash, confirmedAt);
-  return { version: STATE_VERSION, cash, confirmedAt, changes, cashReality, skinId: getSkin(source.skinId).id };
+  return { version: STATE_VERSION, cash, confirmedAt, changes, cashReality, skinId: getSkin(source.skinId).id,
+    ...(source.portableState && typeof source.portableState === 'object' && !Array.isArray(source.portableState) ? {portableState:JSON.parse(JSON.stringify(source.portableState))} : {}) };
 }
 
 function validateDraft(draft = {}) {

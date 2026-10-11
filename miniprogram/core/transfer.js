@@ -1,34 +1,18 @@
 const { normalizeState } = require('./state');
+const { preparePortableBackup, portableToMini } = require('./portable-backup');
 
 const BACKUP_KIND = 'buffer-zone-mini-backup';
 const BACKUP_SCHEMA = 1;
-const MAX_BACKUP_TEXT = 1024 * 1024;
+const MAX_BACKUP_TEXT = 10 * 1024 * 1024;
 
 function createBackup(state, exportedAt = new Date().toISOString()) {
   return { kind: BACKUP_KIND, schemaVersion: BACKUP_SCHEMA, exportedAt, state: normalizeState(state) };
 }
 
-function websiteToMini(value) {
-  return normalizeState({
-    cash: value.cash,
-    cashReality: value.cashReality,
-    records: value.records,
-    confirmedAt: value.cashflowConfirmation && value.cashflowConfirmation.confirmedAt,
-    skinId: value.visualSkinId || value.skinId
-  });
-}
-
 function importBackup(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, message: '备份内容不是对象' };
-  if (value.kind === BACKUP_KIND) {
-    if (Number(value.schemaVersion) !== BACKUP_SCHEMA || !value.state) return { ok: false, message: '小程序备份版本不支持' };
-    return { ok: true, source: 'mini', state: normalizeState(value.state) };
-  }
-  const schemaVersion = Number(value.schemaVersion);
-  if (Number.isInteger(schemaVersion) && schemaVersion >= 1 && schemaVersion <= 9 && value.cash && typeof value.cash === 'object') {
-    return { ok: true, source: 'website', state: websiteToMini(value) };
-  }
-  return { ok: false, message: '无法识别这个备份版本' };
+  const preview = preparePortableBackup(value);
+  if (!preview.ok) return preview;
+  return {ok:true,source:preview.source,state:normalizeState(portableToMini(preview.payload)),summary:preview.summary};
 }
 
 function parseBackupText(text) {
