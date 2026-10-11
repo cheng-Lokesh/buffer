@@ -11,6 +11,7 @@ import { createBalanceAxis, formatChartAmount } from '../src/v12-1-chart-axis.js
 import { parseLookupCents, findBalanceDay, shanghaiDate } from '../src/forecast-lookup.js';
 import { parseBillCsv, summarizeBillRows, setBillRowStatus, includeClearBillRows } from '../src/bill-observation.js';
 import { mountSiteAccountEntry } from './account-entry.js';
+import { isCurrentAccountDialog, confirmAccountDialog } from '../src/account-dialog-lifetime.js';
 
 const SITE_APPEARANCE = 'ink-contours';
 
@@ -748,6 +749,7 @@ function openCapture(originalText = '') {
     showMessage(layer, '正在整理，确认前不会保存。');
     const context = buildRealityCaptureContext(state.cashReality, { asOf: today(), timezone: 'Asia/Shanghai' });
     const result = await parser.parse(text, context);
+    if (!isCurrentAccountDialog(layer, accountEntry.scope)) return;
     submit.disabled = false;
     if (!result.candidates?.length) {
       if (result.status === 'error') {
@@ -791,9 +793,10 @@ function showCandidatePreview(layer, original, candidates) {
       showCandidatePreview(layer, original, pending);
     });
   }));
-  layer.querySelector('[data-confirm]').addEventListener('click', () => {
-    commitCandidates(pending, 'natural_language');
-    layer.remove();
+  layer.querySelector('[data-confirm]').addEventListener('click', async () => {
+    try {
+      await confirmAccountDialog(layer, accountEntry.scope, () => commitCandidates(pending, 'natural_language', layer));
+    } catch { showMessage(layer, '确认未保存。请重新打开后核对。'); }
   });
 }
 
@@ -870,11 +873,13 @@ function openScenario() {
 
 async function commitCandidates(candidates, provenance,layer) {
   try {
-    if(await confirmAccount('capture',{candidates,provenance},layer))return;
+    if(await confirmAccount('capture',{candidates,provenance},layer))return true;
     const result = commitRealityCapture(state.cashReality, candidates, { asOf: today(), confirmedAt: nowIso(), provenance });
     saveReality(result.reality, 'reality_capture_confirmed');
+    return true;
   } catch (error) {
     alert(error instanceof Error ? error.message : '这次变化没有保存。');
+    return false;
   }
 }
 
