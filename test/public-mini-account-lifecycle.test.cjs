@@ -60,3 +60,13 @@ test('native account actions cannot migrate, delete or resolve another view befo
   const {createMiniAccountController}=nativeRequire('./utils/account-controller');
   assert.throws(()=>createMiniAccountController({},{}),/native_account_storage_required/);
 });
+
+test('native App publishes own sync changes and detaches listeners without exposing logged-out state',async()=>{
+  const f=fixture(),seen=[];assert.equal(typeof f.app.subscribeAccountSync,'function');
+  const detach=f.app.subscribeAccountSync(status=>seen.push(status));
+  f.app.subscribeAccountSync(()=>{throw Error('view callback failure');});
+  await f.app.loginWechat();assert.equal(seen.at(-1).phase,'synced');
+  f.setOffline(true);await f.app.confirmAccountOperation(operation,{confirmed:true});assert.equal(seen.at(-1).phase,'offline');
+  f.app.logoutAccount();assert.equal(seen.at(-1).state,null);assert.equal(seen.at(-1).phase,'signed_out');
+  const count=seen.length;detach();f.setOffline(false);await f.app.loginWechat();assert.equal(seen.length,count);
+});

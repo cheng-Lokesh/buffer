@@ -22,3 +22,12 @@ test('local/default page lifecycle remains usable without optional refresh or ac
   let calls=0;const definition=withAccountView({data:{draft:''},onShow(){calls++;}});
   const p={...definition,setData(){}};p.onShow();p.onShow();assert.equal(calls,2);
 });
+
+test('visible pages subscribe once, refresh same-account facts and clear drafts on scope change',()=>{
+  const {withAccountView}=require('../miniprogram/utils/account-view');let callback,subscribes=0,detaches=0,refreshes=0,id='fixture-a';
+  const app={accountStatus:()=>({phase:'signed_in',accountId:id}),subscribeAccountSync(fn){subscribes++;callback=fn;return ()=>{detaches++;callback=null;};}};
+  const definition=withAccountView({data:{draft:''},refresh(){refreshes++;}},app),page={...definition,data:{draft:''},setData(value){Object.assign(this.data,value);}};
+  page.onShow();page.onShow();assert.equal(subscribes,1);page.data.draft='unsaved';callback();assert.equal(page.data.draft,'unsaved');assert.equal(refreshes,3);
+  id='fixture-b';callback();assert.equal(page.data.draft,'');page.onHide();assert.equal(detaches,1);assert.equal(callback,null);
+  page.onShow();assert.equal(subscribes,2);page.onUnload();assert.equal(detaches,2);
+});
