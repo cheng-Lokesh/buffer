@@ -10,10 +10,21 @@ export function createWechatLoginHttpServer({allowedOrigin,handleLogin,handleSyn
     if(url.protocol!=='https:'||url.origin!==allowedOrigin||typeof handleLogin!=='function'||(handleSync!==undefined && typeof handleSync!=='function')||(handlePair!==undefined&&typeof handlePair!=='function'))throw Error();
   }catch{throw Error('login_http_config_invalid');}
   const error=(status,code)=>new Response(JSON.stringify({code}),{status,headers:{'content-type':'application/json; charset=utf-8'}});
+  const gatewayStrippedPaths=new Map([
+    ['/auth/wechat','/api/auth/wechat'],
+    ['/account/sync','/api/account/sync'],
+    ['/auth/browser/create','/api/auth/browser/create'],
+    ['/auth/browser/approve','/api/auth/browser/approve'],
+    ['/auth/browser/consume','/api/auth/browser/consume']
+  ]);
   return createServer(async(nodeRequest,nodeResponse)=>{
     let response,originAllowed=false,isSync=false,isPair=false;
     try {
       const url=new URL(nodeRequest.url,allowedOrigin);
+      // The CloudBase gateway's /api route strips its matched prefix unless
+      // path passthrough is enabled. Accept only the five corresponding
+      // suffixes so the same handler works with that supported gateway mode.
+      if(gatewayStrippedPaths.has(url.pathname))url.pathname=gatewayStrippedPaths.get(url.pathname);
       const origin=nodeRequest.headers.origin;
       isSync=url.pathname==='/api/account/sync' && typeof handleSync==='function';
       isPair=/^\/api\/auth\/browser\/(create|approve|consume)$/.test(url.pathname)&&typeof handlePair==='function';

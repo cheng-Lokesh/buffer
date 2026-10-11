@@ -26,13 +26,14 @@ test('HTTP gateway prefix stripping normalizes only the explicit sync and pairin
     handleSync:async()=>Response.json({fixture:true}),
     handlePair:async()=>Response.json({pending:true},{status:202})
   },async base=>{
+    assert.equal((await fetch(base+'/auth/wechat',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status,200);
     assert.equal((await fetch(base+'/account/sync')).status,401);
     const syncPreflight=await fetch(base+'/account/sync',{method:'OPTIONS',headers:{origin,'access-control-request-method':'POST','access-control-request-headers':'authorization, content-type'}});
     assert.equal(syncPreflight.status,204);
     assert.equal((await fetch(base+'/auth/browser/create')).status,405);
     const pairPreflight=await fetch(base+'/auth/browser/create',{method:'OPTIONS',headers:{origin,'access-control-request-method':'POST','access-control-request-headers':'authorization, content-type'}});
     assert.equal(pairPreflight.status,204);
-    assert.equal((await fetch(base+'/auth/browser/approve',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'})).status,401);
+    assert.equal((await fetch(base+'/auth/browser/approve',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'})).status,202);
     assert.equal((await fetch(base+'/auth/browser/consume',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'})).status,202);
     assert.equal((await fetch(base+'/auth/browser/unknown')).status,404);
     assert.equal((await fetch(base+'/account/other')).status,404);
