@@ -12,3 +12,13 @@ for(const [name,action,method] of [['conditions','saveBasics','recordCash'],['co
   if(name==='future'){page.data.simulationResult={private:true};page.onAccountChange();assert.equal(page.data.simulationResult,null);}
   else{page.data.basicsDraft.balance='private balance';page.onAccountChange();assert.equal(page.data.basicsDraft.balance,'');}
 });
+
+test('conditions live refresh preserves typed basics but updates untouched inputs',()=>{
+  const filename=require('node:path').resolve('miniprogram/pages/conditions/index.js'),nativeRequire=createRequire(filename);
+  const {emptyState}=nativeRequire('../../core/state');let definition,balance=100;
+  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Page:value=>definition=value,require:id=>id==='../../utils/account-store'?{load:()=>({...emptyState(),cash:{balance,reserve:0,daily:10}})}:id==='../../utils/view'?{applySkinChrome:()=>({id:'ink-contours'}),formatTime:()=>'',formatMoney:String}:nativeRequire(id)});
+  const page={...definition,data:structuredClone(definition.data),setData(value){for(const [key,item] of Object.entries(value)){const parts=key.split('.');if(parts.length===2)this.data[parts[0]][parts[1]]=item;else this.data[key]=item;}}};
+  page.refresh();assert.equal(page.data.basicsDraft.balance,'100');balance=200;page.refresh({preserveDrafts:true});assert.equal(page.data.basicsDraft.balance,'200');
+  page.setBasic({currentTarget:{dataset:{field:'balance'}},detail:{value:'345'}});balance=500;page.refresh({preserveDrafts:true});assert.equal(page.data.basicsDraft.balance,'345');
+  page.onAccountChange();assert.equal(page.data.basicsDraft.balance,'500');
+});
