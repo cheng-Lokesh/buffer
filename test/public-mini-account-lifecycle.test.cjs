@@ -50,3 +50,13 @@ test('native foreground and reconnect resume queued work; logout does not expose
   assert.equal(f.app.accountSyncStatus().phase,'synced');await f.app.onShow();
   f.app.logoutAccount();await f.reconnect();await f.app.onShow();assert.equal(f.app.accountSyncStatus().state,null);
 });
+test('native account actions cannot migrate, delete or resolve another view before authentication',async()=>{
+  const f=fixture();assert.equal(f.app.accountSyncStatus().state,null);f.app.logoutAccount();
+  assert.throws(()=>f.app.previewAccountMigration({schemaVersion:9}),/authentication_required/);
+  await assert.rejects(f.app.confirmAccountMigration({}, {confirmed:true}),/authentication_required/);
+  await assert.rejects(f.app.deleteAccountData({confirmed:true}),/authentication_required/);
+  assert.throws(()=>f.app.acceptCloudAccountVersion({confirmed:true,discardPending:true}),/authentication_required/);
+  assert.equal(f.requests.length,0);assert.equal(f.reads.length,0);
+  const {createMiniAccountController}=nativeRequire('./utils/account-controller');
+  assert.throws(()=>createMiniAccountController({},{}),/native_account_storage_required/);
+});

@@ -39,7 +39,9 @@ the web/shared implementation.
 
 ## Boundaries / remaining work
 
-This controller is not yet mounted in the production pages/App. Tests compose
+At this checkpoint the controller was not mounted in production pages/App.
+Subsequent native App composition is recorded in public-mini-account-lifecycle.tdd.md;
+page/store confirmation wiring remains unfinished. Tests compose
 real shared domain/client/service implementations with in-memory storage and
 test identity/transport; they do not prove CloudBase deployment, trusted web/mini
 account linking, rendered UX, five-second cross-device visibility, or handset use.
