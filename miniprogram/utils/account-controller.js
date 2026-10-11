@@ -2,7 +2,7 @@ const {createAccountController}=require('../core/account-controller');
 const {createAccountSyncClient}=require('../core/account-sync-client');
 const {createMiniAccountSyncTransport}=require('./account-sync');
 
-function createMiniAccountController(platform,session){
+function createMiniAccountController(platform,session,onChange){
   if(typeof platform?.getStorageSync!=='function'||typeof platform?.setStorageSync!=='function')throw Error('native_account_storage_required');
   let sequence=0;
   const syncClient=createAccountSyncClient({
@@ -12,6 +12,6 @@ function createMiniAccountController(platform,session){
     // before sending, and reused unchanged for every retry.
     createOperationId:()=>`mini-${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
   });
-  return createAccountController({session,syncClient});
+  return createAccountController({session,syncClient,onChange});
 }
 module.exports={createMiniAccountController};
