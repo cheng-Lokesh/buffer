@@ -44,3 +44,14 @@ test('HTTP host composes full login runtime with cryptographic signing (provider
     assert.equal(response.status,200);const body=await response.json();assert.deepEqual(Object.keys(body),['ticket']);assert.ok(!body.ticket.includes('fixture-only-openid'));assert.equal(calls.length,3);
   });
 });
+
+test('browser authorization routes are opt-in with strict CORS and socket-derived admission context',async()=>{
+  let calls=0;await run(create({handlePair:async(request,context)=>{calls++;assert.equal(context.remoteAddress,'127.0.0.1');return Response.json({pending:true},{status:202,headers:{'set-cookie':'bad=1','access-control-allow-origin':'*'}});}}),async base=>{
+    const response=await fetch(base+'/api/auth/browser/consume',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'});
+    assert.equal(response.status,202);assert.equal(response.headers.get('access-control-allow-origin'),origin);assert.equal(response.headers.get('set-cookie'),null);
+    const preflight=await fetch(base+'/api/auth/browser/approve',{method:'OPTIONS',headers:{origin,'access-control-request-method':'POST','access-control-request-headers':'authorization, content-type'}});
+    assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-headers'),'authorization, content-type');
+    assert.equal((await fetch(base+'/api/auth/browser/consume',{method:'POST',headers:{origin:'https://evil.example','content-type':'application/json'},body:'{}'})).status,403);
+  });assert.equal(calls,1);
+  await run(create(),async base=>assert.equal((await fetch(base+'/api/auth/browser/create')).status,404));
+});
