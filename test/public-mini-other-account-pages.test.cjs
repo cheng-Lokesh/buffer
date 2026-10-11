@@ -24,11 +24,11 @@ test('conditions live refresh preserves typed basics but updates untouched input
 });
 
 test('future refresh recalculates the last explicit scenario against new reality without using unsubmitted input',()=>{
-  const filename=require('node:path').resolve('miniprogram/pages/future/index.js'),nativeRequire=createRequire(filename);let definition,amount=100,patchSeen;
-  const engine={buildCashRealityProjection:()=>({valid:false}),buildNowSummary:()=>({status:'unknown'}),runScenarioPatch:(state,patch)=>{patchSeen=patch;return {patch,delta:{supportDays:1,rangeEndBalanceCents:amount*100}};}};
+  const filename=require('node:path').resolve('miniprogram/pages/future/index.js'),nativeRequire=createRequire(filename);let definition,amount=100,patchSeen,failSimulation=false;
+  const engine={buildCashRealityProjection:()=>({valid:false}),buildNowSummary:()=>({status:'unknown'}),runScenarioPatch:(state,patch)=>{if(failSimulation)throw Error('private technical message');patchSeen=patch;return {patch,delta:{supportDays:1,rangeEndBalanceCents:amount*100}};}};
   vm.runInNewContext(fs.readFileSync(filename,'utf8'),{Page:value=>definition=value,require:id=>id==='../../utils/account-store'?{load:()=>({cashReality:{amount},skinId:'ink-contours'})}:id==='../../core/v8-cash-reality'?engine:id==='../../utils/view'?{applySkinChrome:()=>({id:'ink-contours'}),formatMoney:value=>String(value)}:nativeRequire(id)});
   const patch={changes:[{conditionId:'daily',field:'amount',value:20}]};
   const page={...definition,data:{...structuredClone(definition.data),simulationDaily:'99',simulationResult:{patch,delta:{}}},setData(value,callback){Object.assign(this.data,value);callback?.();},refreshPoint(){},refreshLookup(){},drawActiveChart(){}};
   amount=200;page.refresh({preserveDrafts:true});assert.deepEqual(patchSeen,patch);assert.equal(page.data.simulationDaily,'99');assert.equal(page.data.simulationBalanceLabel,'+200');
-  engine.runScenarioPatch=()=>{throw Error('private technical message');};page.refresh({preserveDrafts:true});assert.equal(page.data.simulationResult,null);assert.ok(!page.data.simulationError.includes('private'));
+  failSimulation=true;page.refresh({preserveDrafts:true});assert.equal(page.data.simulationResult,null);assert.ok(!page.data.simulationError.includes('private'));
 });
