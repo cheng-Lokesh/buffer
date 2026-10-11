@@ -11,7 +11,8 @@ test('V12 invariants remain preserved under the current V12.1 product truth', ()
     const text = read(file);
     assert.match(text, /docs\/V12_1_PRODUCT_CONTRACT\.md/, file);
     assert.match(text, /v0\.35\.0/, file);
-    assert.match(text, /不得.*OCR.*银行同步.*Final Hardening.*V13|停止.*OCR.*银行同步.*Final Hardening.*V13/s, file);
+    assert.match(text, /公开服务[\s\S]*双端/, `${file} must reflect the approved public-service and parity direction`);
+    assert.match(text, /OCR.*银行同步.*AI Chat/s, `${file} must keep unrelated features outside scope`);
   }
   assert.equal(fs.existsSync(path.join(root, 'docs/V12_PRODUCT_CONTRACT.md')), true);
   const contract = read('docs/V12_PRODUCT_CONTRACT.md');
