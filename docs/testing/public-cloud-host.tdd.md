@@ -70,3 +70,21 @@ true cross-end sync remain incomplete. The cloud socket source-IP contract
 behind the proxy is unverified; forwarded client headers are not trusted, so
 the current 5/min source budget may be shared behind the gateway. This remains
 a protected trial, not public-service acceptance. No old local data migrated.
+
+## 2026-10-11 Later live follow-up
+
+After the explicit deployment approval, the existing Shanghai trial environment
+received the account-sync and browser-pairing SQL plus the current HTTP function
+bundle. The CloudBase default `/api` gateway route strips that prefix; the HTTP
+host now normalizes only the five allowlisted suffixes (`auth/wechat`,
+`account/sync`, and the three `auth/browser/*` actions). Local RED/GREEN evidence
+is recorded by commits `ba87167` and `2ac5a5d`; `npm run test:public-sync-host`
+passed 17/17 with 100% line and function coverage and 93.69% branch coverage.
+
+Live HTTP checks passed for allowed-origin preflights (204), unauthenticated
+sync rejection (401), pairing method rejection (405), pairing approval without
+authorization (401), and empty login rejection (400). Database configuration
+singleton rows exist; account, receipt, and challenge tables remain empty. The
+site's anonymous `/`, `/site-app.js`, and `/api/reality/parse` requests remain
+401. This does not establish real user sign-in, mini-program request-domain
+acceptance, financial data sync, or public release.
