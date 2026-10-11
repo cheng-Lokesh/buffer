@@ -18,6 +18,13 @@ function chartPoints(projection) {
   return projection && projection.valid ? projection.points.map((point) => ({ balance: point.closingBalanceCents / 100, reserve: point.reserveCents / 100 })) : [];
 }
 
+function simulationView(result){
+  return {simulationResult:result,
+    simulationDaysLabel:result.delta.supportDays==null?'暂无法比较':`${result.delta.supportDays>=0?'+':''}${result.delta.supportDays} 天`,
+    simulationBalanceLabel:result.delta.rangeEndBalanceCents==null?'暂无法比较':`${result.delta.rangeEndBalanceCents>=0?'+':'-'}${moneyFromCents(Math.abs(result.delta.rangeEndBalanceCents))}`,
+    simulationError:''};
+}
+
 Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', rangeDays: 60,
@@ -35,8 +42,13 @@ Page(withAccountView({
     const summary = buildNowSummary(projection);
     const selectedDate = projection.valid ? (this.data.selectedDate && projection.points.some((point) => point.date === this.data.selectedDate) ? this.data.selectedDate : projection.points[projection.points.length - 1].date) : '';
     const pointOptions = projection.valid ? projection.points.filter((point, index) => index === 0 || index === projection.points.length - 1 || index % 10 === 0).map((point) => ({ date: point.date, label: point.date.slice(5) })) : [];
+    let simulation={};
+    if(this.data.simulationResult){
+      try{simulation=simulationView(runScenarioPatch(state.cashReality,this.data.simulationResult.patch,{asOf:today(),horizonDays:this.data.rangeDays}));}
+      catch{simulation={simulationResult:null,simulationDaysLabel:'尚未模拟',simulationBalanceLabel:'尚未模拟',simulationError:'现金情况已更新，请重新确认模拟条件'};}
+    }
     this.setData({
-      skin, skinClass: `skin-${skin.id}`, projection, summary, selectedDate, pointOptions, trajectory: chartPoints(projection),
+      ...simulation,skin, skinClass: `skin-${skin.id}`, projection, summary, selectedDate, pointOptions, trajectory: chartPoints(projection),
       touchLabel: summary.status === 'unknown' ? '待确认' : summary.reserveTouchDate || `超过 ${this.data.rangeDays} 天`,
       endBalanceLabel: summary.status === 'unknown' ? '待确认' : moneyFromCents(summary.rangeEndBalanceCents)
     }, () => { this.refreshPoint(); this.refreshLookup(); this.drawActiveChart(); });
@@ -108,12 +120,7 @@ Page(withAccountView({
     try {
       const patch = createScenarioPatch({ baseSnapshotId: this.data.projection.engineVersion, changes: [{ conditionId: condition.id, field: 'amount', value: amount }] });
       const result = runScenarioPatch(state.cashReality, patch, { asOf: today(), horizonDays: this.data.rangeDays });
-      this.setData({
-        simulationResult: result,
-        simulationDaysLabel: result.delta.supportDays == null ? '暂无法比较' : `${result.delta.supportDays >= 0 ? '+' : ''}${result.delta.supportDays} 天`,
-        simulationBalanceLabel: result.delta.rangeEndBalanceCents == null ? '暂无法比较' : `${result.delta.rangeEndBalanceCents >= 0 ? '+' : '-'}${moneyFromCents(Math.abs(result.delta.rangeEndBalanceCents))}`,
-        simulationError: ''
-      });
+      this.setData(simulationView(result));
     } catch (error) { this.setData({ simulationError: error.message || '模拟没有完成' }); }
   },
   discardSimulation() { this.setData({ simulationDaily: '', simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '' }); },
