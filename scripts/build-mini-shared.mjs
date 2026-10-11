@@ -1,11 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-for (const [name, expectedExports, targetName = name] of [['forecast-lookup',4],['account-sync-client',1],['account-sync-transport',1],['wechat-account-session',1],['v8-cash-reality',16],['v9-condition-identity',4],['v12-reality-capture',9,'v12-reality-capture-shared'],['state-envelope',2],['account-confirmation',2],['v8-legacy-adapter',2],['portable-backup',3]]) {
+for (const [name, expectedExports, targetName = name] of [['forecast-lookup',4],['account-sync-client',1],['account-sync-transport',1],['account-controller',1],['wechat-account-session',1],['v8-cash-reality',16],['v9-condition-identity',4],['v12-reality-capture',9,'v12-reality-capture-shared'],['state-envelope',2],['account-confirmation',2],['v8-legacy-adapter',2],['portable-backup',3]]) {
 const source = new URL(`../src/${name}.js`, import.meta.url);
 const target = new URL(`../miniprogram/core/${targetName}.js`, import.meta.url);
 const text = readFileSync(source, 'utf8').replace(/\r\n/g, '\n');
 const names = [...text.matchAll(/^export (?:async function|function|const) (\w+)/gm)].map(match => match[1]);
 const adapted = text.replace(/^import\s*\{([\s\S]*?)\}\s*from\s*'\.\/([a-z0-9-]+)\.js';/gm, (_, bindings, dependency) => {
-  if (!['v8-cash-reality','v9-condition-identity','v12-reality-capture','state-envelope','forecast-lookup','account-confirmation','v8-legacy-adapter'].includes(dependency) || !/^\s*\w+(?:\s*,\s*\w+)*\s*$/.test(bindings)) throw new Error('unsupported_shared_import');
+  if (!['v8-cash-reality','v9-condition-identity','v12-reality-capture','state-envelope','forecast-lookup','account-confirmation','v8-legacy-adapter','portable-backup'].includes(dependency) || !/^\s*\w+(?:\s*,\s*\w+)*\s*$/.test(bindings)) throw new Error('unsupported_shared_import');
   return `const {${bindings}} = require('./${dependency === 'v12-reality-capture' ? 'v12-reality-capture-shared' : dependency}');`;
 });
 if (names.length !== expectedExports || /^(?:import|export (?!(?:async function|function|const) ))/m.test(adapted)) throw new Error('unsupported_shared_module');
