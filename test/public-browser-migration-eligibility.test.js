@@ -19,6 +19,6 @@ test('only a confirmed empty synced account may receive an explicit backup migra
 test('backup import captures scope before reading and checks it again before preview',()=>{
   const source=readFileSync(new URL('../site/app-entry.js',import.meta.url),'utf8');
   assert.match(source,/const restoreScope=accountEntry\.scope\(\);[\s\S]{0,180}await file\.text\(\)/);
-  assert.match(source,/restoreScopeChanged/);
-  assert.match(source,/当前账号已有数据，不能直接覆盖/);
+  assert.match(source,/账号已切换，恢复已取消/);
+  assert.match(source,/当前账号已有数据或待同步内容，不能直接恢复备份覆盖/);
 });

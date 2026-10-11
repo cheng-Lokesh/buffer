@@ -12,6 +12,7 @@ import { parseLookupCents, findBalanceDay, shanghaiDate } from '../src/forecast-
 import { parseBillCsv, summarizeBillRows, setBillRowStatus, includeClearBillRows } from '../src/bill-observation.js';
 import { mountSiteAccountEntry } from './account-entry.js';
 import { isCurrentAccountDialog, confirmAccountDialog } from '../src/account-dialog-lifetime.js';
+import { canMigrateBackupToAccount } from '../src/browser-migration-eligibility.js';
 
 const SITE_APPEARANCE = 'ink-contours';
 
@@ -911,13 +912,17 @@ function exportBackup() {
 async function restoreFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
+  event.target.value = '';
+  const restoreScope=accountEntry.scope();
+  const restoreWasAccount=accountMode();
   try {
     const value = JSON.parse(await file.text());
+    if(restoreWasAccount!==accountMode()||JSON.stringify(restoreScope)!==JSON.stringify(accountEntry.scope())){alert('账号已切换，恢复已取消。请重新选择备份。');return;}
     const portable = preparePortableBackup(value, { fileSize: file.size });
     if (!portable.ok) return alert(portable.message);
     const preview = {payload:portable.payload,skippedItems:0,summary:{fileName:file.name,schemaVersion:9,cashConditions:portable.summary.conditions,cashEvents:portable.summary.events}};
-    const restoreScope=accountEntry.scope();
-    const migration=accountMode()?accountEntry.previewMigration(preview.payload,{scope:restoreScope}):null;
+    if(restoreWasAccount&&!canMigrateBackupToAccount(accountEntry.status().sync)){alert('当前账号已有数据或待同步内容，不能直接恢复备份覆盖。请先下载当前账号备份；目前不支持将备份合并到已有账号。');return;}
+    const migration=restoreWasAccount?accountEntry.previewMigration(preview.payload,{scope:restoreScope}):null;
     const layer = modal(`<header><div><span>恢复前核对</span><h2>${escapeHtml(preview.summary.fileName)}</h2><p>包含 ${preview.summary.cashConditions} 个已确认项目和 ${preview.summary.cashEvents} 条收支记录。</p></div><button type="button" data-close aria-label="关闭">×</button></header><div class="live-confirm"><p>备份版本 <strong>${preview.summary.schemaVersion}</strong></p><p>无法使用的内容 <strong>${preview.skippedItems}</strong></p></div><footer><button type="button" data-close-again>取消</button><button class="live-primary" type="button" data-restore>确认恢复</button></footer>`, '恢复备份');
     layer.querySelector('[data-close-again]').addEventListener('click', () => layer.remove());
     layer.querySelector('[data-restore]').addEventListener('click', async () => {
@@ -925,8 +930,9 @@ async function restoreFile(event) {
         if(migration){
           if(!confirm('将备份恢复到当前空账号，并同步到其他设备。本机旧数据不会删除。是否继续？'))return;
           const result=await accountEntry.confirmMigration(migration,{confirmed:true,scope:restoreScope});
-          if(result.phase!=='synced'||result.pendingCount)throw Error('restore_not_synced');
-          layer.remove();return;
+          if(result.phase==='synced'&&!result.pendingCount){layer.remove();return;}
+          if(result.pendingCount){alert('恢复已确认，正在等待网络同步。请保持账号登录，另一设备同步完成前先保留这份备份。');layer.remove();return;}
+          throw Error('restore_not_synced');
         }
         if(accountMode())throw Error('restore_scope_changed');
         const payload = {...preview.payload,visualSkinId:SITE_APPEARANCE};
@@ -941,8 +947,7 @@ async function restoreFile(event) {
         layer.remove();
       } catch { alert('本机保存失败，原有数据未替换。请稍后重试。'); }
     });
-  } catch { alert('备份文件无法读取。'); }
-  event.target.value = '';
+  } catch { alert(restoreWasAccount?'备份未恢复，云端和本机数据均保留。请检查账号状态后重试。':'备份文件无法读取。'); }
 }
 
 document.querySelector('.nav-item[data-page="rec"]')?.addEventListener('click', () => {
