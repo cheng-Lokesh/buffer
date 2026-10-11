@@ -75,4 +75,6 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
   async function clear(){return localMode()?local.clear():failure('请使用账号数据删除确认，原数据未改动');}
   return {load,recordCash,captureReality,recordV8Event,addV8CashCondition,setV8Condition,saveV8Scenario,exportText,restoreState,clear};
 }
-module.exports={createMiniAccountStore};
+let pageStore;
+const currentPageStore=()=>pageStore||(pageStore=createMiniAccountStore({getApp:()=>typeof getApp==='function'?getApp():null}));
+module.exports={createMiniAccountStore,...Object.fromEntries(['load','recordCash','captureReality','recordV8Event','addV8CashCondition','setV8Condition','saveV8Scenario','exportText','restoreState','clear'].map(name=>[name,(...args)=>currentPageStore()[name](...args)]))};

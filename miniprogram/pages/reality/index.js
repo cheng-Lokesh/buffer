@@ -1,4 +1,4 @@
-const store = require('../../utils/store');
+const store = require('../../utils/account-store');
 const { buildRealityModel } = require('../../core/reality');
 const { getSkin } = require('../../core/skins');
 const { formatMoney, formatTime, applySkinChrome } = require('../../utils/view');
@@ -18,7 +18,7 @@ Page({
     skin: getSkin(), skinClass: 'skin-ink-contours', rangeDays: 30,
     model: buildRealityModel(), zones: ZONES,
     balanceLabel: '待确认', reserveLabel: '待确认', usableLabel: '待确认', dailyLabel: '待确认', confirmedLabel: '还没有确认记录',
-    captureOpen: false, captureMode: 'home', captureBalance: '', captureText: '', captureMessage: '', candidateItems: [], dueItems: [],
+    captureOpen: false, captureMode: 'home', captureBalance: '', captureText: '', captureMessage: '', candidateItems: [], dueItems: [], confirmingReality: false,
     ...createSceneState('reality')
   },
   onShow() { this.refresh(); },
@@ -49,13 +49,21 @@ Page({
   setCaptureMode(event) { this.setData({ captureMode: event.currentTarget.dataset.mode, captureMessage: '' }); },
   setCaptureBalance(event) { this.setData({ captureBalance: event.detail.value, captureMessage: '' }); },
   setCaptureText(event) { this.setData({ captureText: event.detail.value, captureMessage: '' }); },
-  confirmBalance() {
+  async submitCapture(candidates,provenance) {
+    if(this.data.confirmingReality)return;
+    this.setData({confirmingReality:true});
+    try{
+      const result=await store.captureReality(candidates,{provenance});
+      if(!result.ok)return this.setData({captureMessage:result.message||'这次变化未保存'});
+      this.setData({captureMode:'complete',captureMessage:'',balanceLabel:formatMoney(result.summary.balance)});
+      this.refresh();
+    }catch{this.setData({captureMessage:'这次变化未保存，请重试'});}
+    finally{this.setData({confirmingReality:false});}
+  },
+  async confirmBalance() {
     const amount = Number(this.data.captureBalance);
-    if (!Number.isFinite(amount) || amount < 0) return this.setData({ captureMessage: '请输入实际可用现金总额' });
-    const result = store.captureReality([{ type: 'balance_confirmation', amount, occurredAt: shanghaiDate() }], { provenance: 'manual_balance' });
-    if (!result.ok) return this.setData({ captureMessage: result.message || '本机保存失败' });
-    this.setData({ captureMode: 'complete', captureMessage: '', balanceLabel: formatMoney(result.summary.balance) });
-    this.refresh();
+    if (!String(this.data.captureBalance).trim() || !Number.isFinite(amount) || amount < 0) return this.setData({ captureMessage: '请输入实际可用现金总额' });
+    return this.submitCapture([{ type: 'balance_confirmation', amount, occurredAt: shanghaiDate() }],'manual_balance');
   },
   parseNatural() {
     const result = parseMiniRealityMessage(this.data.captureText, { asOf: shanghaiDate(), state: store.load() });
@@ -68,19 +76,13 @@ Page({
     const index = Number(event.currentTarget.dataset.index);
     this.setData({ candidateItems: this.data.candidateItems.filter((_, itemIndex) => itemIndex !== index).map((item, itemIndex) => ({ ...item, index: itemIndex })) });
   },
-  confirmCandidates() {
+  async confirmCandidates() {
     const candidates = this.data.candidateItems.map(({ index, label, amountLabel, direction, ...item }) => item);
-    const result = store.captureReality(candidates, { provenance: 'natural_language' });
-    if (!result.ok) return this.setData({ captureMessage: result.message || '这次变化没有写入' });
-    this.setData({ captureMode: 'complete', captureMessage: '', balanceLabel: formatMoney(result.summary.balance) });
-    this.refresh();
+    return this.submitCapture(candidates,'natural_language');
   },
-  confirmDue(event) {
+  async confirmDue(event) {
     const occurrenceId = event.currentTarget.dataset.id;
-    const result = store.captureReality([{ type: 'existing_occurrence_confirmation', occurrenceId }], { provenance: 'quick_occurrence' });
-    if (!result.ok) return this.setData({ captureMessage: result.message || '这项预计事项无法确认' });
-    this.setData({ captureMode: 'complete', captureMessage: '' });
-    this.refresh();
+    return this.submitCapture([{ type: 'existing_occurrence_confirmation', occurrenceId }],'quick_occurrence');
   },
   voiceUnavailable() { this.setData({ captureMessage: '小程序语音转写暂不可用，请直接输入文字' }); },
   goPreciseConditions() { this.closeCapture(); wx.switchTab({ url: '/pages/conditions/index' }); }
