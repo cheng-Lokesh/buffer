@@ -18,7 +18,7 @@ test('runtime verifies ordinary JWT via provider then validates confirmation bef
     if(url.endsWith('/user/me'))return Response.json({sub:'fixture-user',status:'ACTIVE'});
     const body=JSON.parse(input.body);assert.equal(body.p_key,backendKey);assert.equal(Object.hasOwn(body,'owner'),false);
     if(url.endsWith('/buffer_sync_read'))return Response.json(committed || {revision:0,deletionGeneration:0,state:null});
-    if(url.endsWith('/buffer_sync_receipt'))return Response.json(null);
+    if(url.endsWith('/buffer_sync_receipt'))return Response.json({stale:false,receipt:null});
     if(url.endsWith('/buffer_sync_commit')){committed=body.p_next;return Response.json(true);}
     throw Error('unexpected endpoint');
   }});
