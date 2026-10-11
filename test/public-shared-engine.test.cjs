@@ -11,7 +11,7 @@ const reality={conditions:[
   {id:'income',type:'recurring_income',amount:5000,frequency:'monthly',nextOccurrence:'2027-01-05',status:'confirmed',source:'user_confirmed'}
 ],events:[],scenarioDrafts:[]};
 function nativeEngine(){
-  const context={module:{exports:{}},structuredClone:undefined};
+  const context={module:{exports:{}},structuredClone:undefined,Intl:undefined};
   vm.runInNewContext(fs.readFileSync('miniprogram/core/v8-cash-reality.js','utf8'),context,
     {filename:path.resolve('miniprogram/core/v8-cash-reality.js')});
   return context.module.exports;
