@@ -23,3 +23,17 @@ test('logout cancels pending browser ticket and cannot install an old session',a
 test('browser session refuses missing trusted adapters and arbitrary endpoint environments',async()=>{
   const create=await factory();assert.throws(()=>create({}),/browser_session_config_invalid/);assert.throws(()=>create({envId:'https://other-site',getLoginTicket:async()=>{},request:async()=>{}}),/browser_session_config_invalid/);
 });
+
+test('browser rejects service identities, inactive profiles and malformed ticket/token responses',async()=>{
+  const create=await factory();
+  for(const variant of ['ticket','tokens','service','inactive','http','array']){
+    const session=create({envId:'buffer-d4gz06df3a59dea88',getLoginTicket:async()=>variant==='ticket'?{}:{ticket:'ticket',accountId:'owner'},request:async input=>({status:variant==='http'?503:200,body:variant==='array'?[]:input.url.endsWith('/user/me')?{sub:'owner',...(variant==='service'?{username:'buffer-login-service'}:{}),...(variant==='inactive'?{status:'DISABLED'}:{})}:variant==='tokens'?{sub:'other'}:{sub:'owner',access_token:'access',refresh_token:'refresh',expires_in:120}})});
+    await assert.rejects(session.login(),/login_unavailable/);assert.equal(session.status().accountId,null);
+    await assert.rejects(session.getAccessToken(),/authentication_required/);
+  }
+});
+test('browser token refresh coalesces and revalidates identity before returning a token',async()=>{
+  const f=await fixture();await f.session.login();await f.session.login();assert.equal(f.tickets,1);
+  f.setTime(100000);const tokens=await Promise.all([f.session.getAccessToken(),f.session.getAccessToken()]);assert.deepEqual(tokens,['fixture-access','fixture-access']);
+  assert.equal(f.calls.filter(call=>call.url.endsWith('/token')).length,1);assert.equal(f.calls.filter(call=>call.url.endsWith('/user/me')).length,2);
+});
