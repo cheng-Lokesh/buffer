@@ -38,3 +38,32 @@ test('pairing adapter rejects invalid inputs before network calls and requires a
   await assert.rejects(f.store.approve({code:input.code,accountId:'fixture-owner',ticket:'x'.repeat(16385)}),/pair_input_invalid/);
   assert.equal(f.calls.length,0);
 });
+
+test('encrypted RPC adapter integrates with real SQL and never returns a grant twice',async()=>{
+  const {PGlite}=await import('@electric-sql/pglite');const {readFileSync}=await import('node:fs');
+  const create=await factory(),db=new PGlite();
+  try {
+    await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE SCHEMA auth;
+      CREATE FUNCTION auth.uid() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub' $$;
+      CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role' $$;`);
+    await db.exec(readFileSync(new URL('../server/sql/004-browser-pairing.sql',import.meta.url),'utf8'));
+    await db.query('INSERT INTO buffer_pair_private.config VALUES(true,$1,$2)',['a'.repeat(64),serviceUserId]);
+    const names={buffer_pair_create:['p_key','p_challenge','p_code','p_browser'],buffer_pair_approve:['p_key','p_code','p_owner','p_sealed'],buffer_pair_consume:['p_key','p_challenge','p_browser']};
+    const store=create({envId,serviceUserId,backendKey:'a'.repeat(64),encryptionKey:'b'.repeat(64),hashSecret:'c'.repeat(64),getAccessToken:async()=>token('authenticated'),fetchImpl:async(url,options)=>{
+      const name=new URL(url).pathname.split('/').at(-1),body=JSON.parse(options.body),fields=names[name];assert.ok(fields);
+      await db.exec('BEGIN');
+      try {
+        await db.query("SELECT set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:serviceUserId,role:'authenticated'})]);await db.exec('SET LOCAL ROLE authenticated');
+        const response=await db.query(`SELECT public.${name}(${fields.map((_,i)=>'$'+(i+1)).join(',')}) AS result`,fields.map(field=>body[field]));
+        await db.exec('COMMIT');return new Response(JSON.stringify(response.rows[0].result));
+      } catch(error){await db.exec('ROLLBACK');throw error;}
+    }});
+    assert.equal(await store.create(input),true);assert.equal(await store.consume(input),null);
+    assert.equal(await store.approve({code:input.code,accountId:'fixture-owner',ticket:'fixture-private-ticket'}),true);
+    const saved=(await db.query('SELECT * FROM buffer_pair_private.challenges')).rows[0];
+    assert.ok(!JSON.stringify(saved).includes('fixture-private-ticket'));assert.ok(!JSON.stringify(saved).includes(input.browserSecret));
+    assert.equal(await store.consume({...input,browserSecret:'F'.repeat(43)}),null);
+    assert.deepEqual(await store.consume(input),{accountId:'fixture-owner',ticket:'fixture-private-ticket'});
+    assert.equal(await store.consume(input),null);
+  } finally {await db.close();}
+});
