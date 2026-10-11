@@ -117,3 +117,23 @@ source identity, cost/public-service gates and true end-to-end data sync.
   invalidate the earlier real native custom-login result, but that test alone
   does not prove Mini Program release readiness or financial synchronization.
   No cloud resources, credentials, account permissions or product code changed.
+
+## Native request-domain recheck — 2026-10-11
+
+- After the user reported that the required request domains had been added, the
+  current `buffer-zone` Mini Program was checked through the official local
+  developer-tool automation connection, without disabling platform validation.
+- A native `wx.request` GET to the deployed `/api/account/sync` endpoint, with no
+  credentials or request body, reached the service and returned HTTP 401 as
+  expected. The prior `url not in domain list` failure did not recur. This is a
+  PASS for the developer-tool request-domain path and server-side auth gate; it
+  is not handset or authenticated sync acceptance.
+- No cash-state storage was changed, no account login was triggered, and no
+  financial data was sent. The scripted system-modal confirm/cancel controls
+  did not invoke the Mini Program callback in this session, so authenticated
+  UI login and logout were not re-certified here; the earlier real login result
+  above remains a separate recorded pass.
+- Read-only CloudBase checks confirmed `buffer-wechat-login` is Active, the
+  scoped login guard is 60 requests/minute and 100/day, and the existing
+  experience package reports auto-renew and overrun both disabled. No cloud
+  configuration was changed during these checks.
