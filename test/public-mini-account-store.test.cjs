@@ -69,3 +69,39 @@ test('same-account relogin invalidates in-flight page confirmation acknowledgeme
   f.app.confirmAccountOperation=async()=>{generation+=2;return {phase:'synced',pendingCount:0};};
   assert.equal((await f.store.recordCash({balance:1,reserve:0,daily:1})).ok,false);assert.equal(f.reads,0);
 });
+
+test('account restore requires the exact preview, payload and current login generation',async()=>{
+  const f=fixture();let generation=1,calls=0;
+  f.app.accountStatus=()=>({phase:'signed_in',accountId:'fixture-a',viewGeneration:generation});
+  f.app.previewAccountMigration=backup=>({payload:backup,summary:{balance:backup.cash.balance}});
+  f.app.confirmAccountMigration=async()=>{calls++;return {phase:'synced',pendingCount:0};};
+  const value=JSON.parse(f.store.exportText());
+  const preview=f.store.previewRestore(value);assert.equal(preview.ok,true);
+  assert.equal((await f.store.restoreState(value,{confirmed:true,accountConfirmed:true,preview:{...preview}})).ok,false);
+  assert.equal((await f.store.restoreState({...value,cash:{...value.cash,balance:1}},{confirmed:true,accountConfirmed:true,preview})).ok,false);
+  assert.equal(calls,0);
+  assert.equal((await f.store.restoreState(value,{confirmed:true,accountConfirmed:true,preview})).ok,true);assert.equal(calls,1);
+  const stale=f.store.previewRestore(value);generation++;
+  assert.equal((await f.store.restoreState(value,{confirmed:true,accountConfirmed:true,preview:stale})).ok,false);assert.equal(calls,1);assert.equal(f.writes,0);
+});
+
+test('account deletion reports completion only after a server acknowledgement',async()=>{
+  const f=fixture();let calls=0;
+  f.app.deleteAccountData=async()=>{calls++;return {phase:'offline',pendingCount:1,state:null};};
+  assert.equal((await f.store.clear({confirmed:true})).ok,false);assert.equal(calls,0);
+  const pending=await f.store.clear({confirmed:true,accountConfirmed:true});
+  assert.equal(pending.ok,true);assert.equal(pending.completed,false);assert.equal(pending.pendingCount,1);
+  f.app.deleteAccountData=async()=>({phase:'synced',pendingCount:0,state:null});
+  assert.equal((await f.store.clear({confirmed:true,accountConfirmed:true})).completed,true);
+  f.app.deleteAccountData=async()=>({phase:'conflict',pendingCount:0,state:{}});
+  assert.equal((await f.store.clear({confirmed:true,accountConfirmed:true})).completed,false);assert.equal(f.writes,0);
+});
+
+test('restore and deletion errors or session changes never acknowledge completion',async()=>{
+  const f=fixture();f.app.previewAccountMigration=()=>{throw Error('private');};
+  assert.equal(f.store.previewRestore({}).ok,false);
+  f.app.deleteAccountData=async()=>{throw Error('private');};
+  assert.equal((await f.store.clear({confirmed:true,accountConfirmed:true})).ok,false);
+  f.app.deleteAccountData=async()=>{f.setPhase('signed_out');return {phase:'synced',pendingCount:0,state:null};};
+  assert.equal((await f.store.clear({confirmed:true,accountConfirmed:true})).ok,false);assert.equal(f.reads,0);
+});
