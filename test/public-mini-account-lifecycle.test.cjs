@@ -16,7 +16,7 @@ function fixture(){
       if(opts.url.endsWith('/api/account/sync')){
         if(offline)return opts.fail({errMsg:'private network error'});
         if(opts.method==='POST'){
-          const command=JSON.parse(opts.data);
+          const command=opts.data;
           view={...view,revision:view.revision+1,state:{schemaVersion:9,cash:command.operation.cash}};
         }
         return opts.success({statusCode:200,data:view});
