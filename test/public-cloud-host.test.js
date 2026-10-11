@@ -17,3 +17,22 @@ test('real HTTP host bootstraps validated ordinary session and entire login path
 test('platform denial never produces a listening server or leaks provider error',async()=>{
   await assert.rejects(create({fetchImpl:async()=>{throw Error('private-provider-secret');}}),/^Error: cloud_login_startup_failed$/);
 });
+test('financial runtime is explicitly configured and uses end-user bearer, never the login-service session',async()=>{
+  await assert.rejects(create({config:{...config,sync:{enabled:true,backendKey:'bad'}},fetchImpl:async()=>Response.json({})}),/cloud_login_startup_failed/);
+  const userToken=`e30.${Buffer.from(JSON.stringify({role:'authenticated',sub:'fixture-user',aud:config.envId,exp:Date.now()/1000+300})).toString('base64url')}.fixture`;
+  let financialCalls=0;
+  const server=await create({config:{...config,sync:{enabled:true,backendKey:'a'.repeat(64)}},fetchImpl:async(input,init)=>{
+    const url=String(input);
+    if(url.endsWith('/signin'))return Response.json({access_token:token,refresh_token:'fixture-refresh',expires_in:3600,sub:config.serviceUserId});
+    if(url.endsWith('/user/me'))return Response.json(init.headers.authorization===`Bearer ${userToken}`?{sub:'fixture-user',status:'ACTIVE'}:{sub:config.serviceUserId,username:'buffer-login-service'});
+    if(url.endsWith('/buffer_sync_read')){financialCalls++;assert.equal(init.headers.authorization,`Bearer ${userToken}`);return Response.json({revision:0,deletionGeneration:0,state:null});}
+    throw Error('unexpected provider fixture');
+  }});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try {
+    const base=`http://127.0.0.1:${server.address().port}`;
+    const missing=await fetch(base+'/api/account/sync');assert.equal(missing.status,401);
+    const own=await fetch(base+'/api/account/sync',{headers:{authorization:`Bearer ${userToken}`}});assert.equal(own.status,200);assert.equal((await own.json()).state,null);
+    assert.equal(financialCalls,1);
+  } finally {await new Promise(resolve=>server.close(resolve));}
+});
