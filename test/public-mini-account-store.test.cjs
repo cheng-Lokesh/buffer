@@ -43,3 +43,19 @@ test('explicit local mode keeps its existing backup/delete and capture semantics
   const {createMiniAccountStore}=require('../miniprogram/utils/account-store');let calls=0;
   const noAccount=createMiniAccountStore({local:{load:()=>{calls++;return {};}}});noAccount.load();assert.equal(calls,1);
 });
+test('account conditions and scenario drafts preserve precise page intent',async()=>{
+  const f=fixture();assert.equal(typeof f.store.addV8CashCondition,'function');
+  await f.store.addV8CashCondition({type:'recurring_expense',amount:'30',frequency:'monthly',nextOccurrence:'2026-11-01',includedInDailyFloor:true});
+  assert.equal(f.commands[0].operation.candidates[0].includedInDailyFloor,true);
+  assert.equal(f.commands[0].operation.candidates[0].startDate,'2026-11-01');
+  await f.store.addV8CashCondition({type:'known_event',eventKind:'income',amount:50,nextOccurrence:'2026-11-02'});
+  assert.equal(f.commands[1].operation.candidates[0].type,'known_future_income');
+  await f.store.setV8Condition('fixture-condition',{amount:40});assert.equal(f.commands[2].operation.conditionId,'fixture-condition');
+  await f.store.saveV8Scenario({changes:[]});assert.equal(f.commands[3].operation.action,'save_scenario');assert.equal(f.writes,0);
+  assert.equal((await f.store.addV8CashCondition({type:'unexpected',amount:1})).ok,false);
+});
+test('account export contains only own envelope and does not substitute legacy backup on failure',()=>{
+  const f=fixture();assert.equal(typeof f.store.exportText,'function');
+  const backup=JSON.parse(f.store.exportText());assert.equal(backup.schemaVersion,9);assert.equal(backup.cash.balance,9000);assert.equal(f.reads,0);
+  f.app.accountSyncStatus=()=>({state:{schemaVersion:99}});assert.equal(f.store.exportText(),null);assert.equal(f.reads,0);
+});
