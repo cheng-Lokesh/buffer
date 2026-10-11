@@ -9,7 +9,7 @@
     "build": "node scripts/build-mini-shared.mjs && python site/build_index.py && node scripts/build-edgeone-static.mjs",
     "preview": "node server/site-server.mjs",
     "verify:miniprogram": "node scripts/verify-miniprogram-release.cjs",
-    "test:miniprogram": "node --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs",
+    "test:miniprogram": "node --test test/miniprogram-v1-product.test.cjs test/miniprogram-v1-quality.test.cjs test/v8-miniprogram-core.test.cjs test/v8-miniprogram-experience.test.cjs test/public-mini-evidence-preservation.test.cjs",
     "test:public-sync": "node scripts/build-mini-shared.mjs --check && node --test test/public-account-sync.test.js test/public-sync-client.test.js test/public-forecast-lookup.test.js test/public-mini-lookup.test.cjs",
     "test:public-parity": "node scripts/build-mini-shared.mjs --check && node --experimental-test-coverage --test-coverage-include=src/v8-cash-reality.js --test-coverage-include=miniprogram/core/v8-cash-reality.js --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=90 --test test/public-shared-engine.test.cjs test/v8-platform-parity.test.cjs test/v8-miniprogram-core.test.cjs",
     "test:public-account": "node scripts/build-mini-shared.mjs --check && node --experimental-test-coverage --test-coverage-include=src/wechat-account-session.js --test-coverage-include=miniprogram/utils/account.js --test-coverage-include=miniprogram/components/account-entry/index.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 --test test/public-account-session.test.js test/public-mini-account.test.cjs test/public-mini-account-entry.test.cjs",

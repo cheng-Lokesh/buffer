@@ -91,7 +91,7 @@ function applyCashChange(state, draft, occurredAt = new Date().toISOString(), id
   const baseReality = realityFromCash(validation.cash, occurredAt);
   const nonBaseConditions = current.cashReality.conditions.filter((item) => !['balance', 'reserve', 'daily_floor'].includes(item.type));
   const cashReality = normalizeCashReality({
-    ...baseReality,
+    ...current.cashReality,
     conditions: [...baseReality.conditions, ...nonBaseConditions],
     events: current.cashReality.events,
     scenarioDrafts: current.cashReality.scenarioDrafts
