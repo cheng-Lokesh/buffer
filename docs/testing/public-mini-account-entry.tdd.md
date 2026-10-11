@@ -35,3 +35,15 @@ Real application-level authentication passed separately in
 `public-account-session.tdd.md`; it does not substitute for visible flow or
 handset acceptance. Web linkage, durable sync, all-page visual parity and public
 release are still unfinished. Existing protected website is unchanged.
+
+## 2026-10-11 account coverage-gate repair
+
+The `test:public-account` command measured the visible account component but
+omitted the already-existing native browser-pairing, conflict-management, and
+page-view interaction suites. The original command ran 21 passing tests but
+failed its 80% line-coverage gate at 73.10%. A guard test was committed first
+as RED (`687e1b0`), proving all three suites were absent from the command.
+After including them, `npm run test:public-account` passed 33/33 with line/
+branch/function coverage 90.06%/92.12%/93.48%. This fixes test selection only;
+it is not evidence of CloudBase deployment, completed real browser pairing,
+cross-device sync, or handset acceptance.
