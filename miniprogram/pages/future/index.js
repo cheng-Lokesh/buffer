@@ -1,4 +1,5 @@
-const store = require('../../utils/store');
+const store = require('../../utils/account-store');
+const {withAccountView}=require('../../utils/account-view');
 const { getSkin } = require('../../core/skins');
 const { buildCashRealityProjection, buildNowSummary, explainProjectionPoint, createScenarioPatch, runScenarioPatch } = require('../../core/v8-cash-reality');
 const { formatMoney, applySkinChrome, drawTrajectory } = require('../../utils/view');
@@ -17,7 +18,7 @@ function chartPoints(projection) {
   return projection && projection.valid ? projection.points.map((point) => ({ balance: point.closingBalanceCents / 100, reserve: point.reserveCents / 100 })) : [];
 }
 
-Page({
+Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', rangeDays: 60,
     projection: null, summary: null, trajectory: [], pointOptions: [], selectedDate: '', selectedPoint: null,
@@ -116,11 +117,11 @@ Page({
     } catch (error) { this.setData({ simulationError: error.message || '模拟没有完成' }); }
   },
   discardSimulation() { this.setData({ simulationDaily: '', simulationResult: null, simulationDaysLabel: '尚未模拟', simulationBalanceLabel: '尚未模拟', simulationError: '' }); },
-  saveSimulation() {
+  async saveSimulation() {
     if (!this.data.simulationResult) return this.setData({ simulationError: '请先运行一次模拟' });
-    const result = store.saveV8Scenario(this.data.simulationResult.patch);
+    const result = await store.saveV8Scenario(this.data.simulationResult.patch);
     if (!result.ok) return this.setData({ simulationError: result.message || '草稿没有保存' });
     wx.showToast({ title: '模拟草稿已保存', icon: 'success' });
   },
   goConditions() { wx.switchTab({ url: '/pages/conditions/index' }); }
-});
+},undefined,['saveSimulation']));

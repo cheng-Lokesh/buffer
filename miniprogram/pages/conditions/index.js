@@ -1,4 +1,5 @@
-const store = require('../../utils/store');
+const store = require('../../utils/account-store');
+const {withAccountView}=require('../../utils/account-view');
 const { getSkin } = require('../../core/skins');
 const { formatMoney, formatTime, applySkinChrome } = require('../../utils/view');
 const { createSceneState, paginateItems } = require('../../core/viewport');
@@ -15,7 +16,7 @@ function conditionView(item) {
   return { ...item, typeLabel: typeLabels[item.type] || item.type, amountLabel: formatMoney(item.amount), timingLabel: item.nextOccurrence || item.startDate || '日期待确认', frequencyLabel: frequencyLabels[item.frequency] || '' };
 }
 
-Page({
+Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', hasCash: false, confirmedLabel: '还没有确认记录',
     basicsDraft: { balance: '', reserve: '', daily: '', note: '' }, basicsErrors: {},
@@ -40,8 +41,8 @@ Page({
   selectScene(event) { this.setData(createSceneState('conditions', Number(event.currentTarget.dataset.index))); },
   changeScene(event) { this.setData(createSceneState('conditions', Number(event.detail.current))); },
   setBasic(event) { const field = event.currentTarget.dataset.field; this.setData({ [`basicsDraft.${field}`]: event.detail.value, [`basicsErrors.${field}`]: '' }); },
-  saveBasics() {
-    const result = store.recordCash(this.data.basicsDraft);
+  async saveBasics() {
+    const result = await store.recordCash(this.data.basicsDraft);
     if (!result.ok) return this.setData({ basicsErrors: result.errors || { storage: '本机保存失败' } });
     this.setData({ basicsErrors: {} }); this.refresh(); wx.showToast({ title: '基础条件已确认', icon: 'success' });
   },
@@ -53,18 +54,18 @@ Page({
   },
   setRecurringDate(event) { this.setData({ 'recurringDraft.nextOccurrence': event.detail.value }); },
   toggleIncluded(event) { this.setData({ 'recurringDraft.includedInDailyFloor': event.detail.value }); },
-  saveRecurring() {
+  async saveRecurring() {
     const draft = this.data.recurringDraft;
-    const result = store.addV8CashCondition({ type: draft.kind === 'income' ? 'recurring_income' : 'recurring_expense', amount: draft.amount, frequency: draft.frequency, nextOccurrence: draft.nextOccurrence, includedInDailyFloor: draft.includedInDailyFloor });
+    const result = await store.addV8CashCondition({ type: draft.kind === 'income' ? 'recurring_income' : 'recurring_expense', amount: draft.amount, frequency: draft.frequency, nextOccurrence: draft.nextOccurrence, includedInDailyFloor: draft.includedInDailyFloor });
     if (!result.ok) return this.setData({ recurringErrors: result.errors || { storage: '本机保存失败' } });
     this.setData({ frequencyIndex: 2, recurringDraft: { kind: 'expense', amount: '', frequency: 'monthly', nextOccurrence: today(), includedInDailyFloor: false }, recurringErrors: {} }); this.refresh(); wx.showToast({ title: '固定条件已加入', icon: 'success' });
   },
   setEventKind(event) { this.setData({ 'eventDraft.kind': event.detail.value }); },
   setEventAmount(event) { this.setData({ 'eventDraft.amount': event.detail.value, 'eventErrors.amount': '' }); },
   setEventDate(event) { this.setData({ 'eventDraft.nextOccurrence': event.detail.value }); },
-  saveEvent() {
+  async saveEvent() {
     const draft = this.data.eventDraft;
-    const result = store.addV8CashCondition({ type: 'known_event', eventKind: draft.kind, amount: draft.amount, frequency: 'once', nextOccurrence: draft.nextOccurrence });
+    const result = await store.addV8CashCondition({ type: 'known_event', eventKind: draft.kind, amount: draft.amount, frequency: 'once', nextOccurrence: draft.nextOccurrence });
     if (!result.ok) return this.setData({ eventErrors: result.errors || { storage: '本机保存失败' } });
     this.setData({ eventDraft: { kind: 'expense', amount: '', nextOccurrence: today() }, eventErrors: {} }); this.refresh(); wx.showToast({ title: '未来事件已加入', icon: 'success' });
   },
@@ -72,4 +73,4 @@ Page({
   nextRecurring() { this.setData({ recurringPage: paginateItems(this.data.recurringItems, this.data.recurringPage.page + 1, 3) }); },
   previousEvents() { this.setData({ eventPage: paginateItems(this.data.eventItems, this.data.eventPage.page - 1, 3) }); },
   nextEvents() { this.setData({ eventPage: paginateItems(this.data.eventItems, this.data.eventPage.page + 1, 3) }); }
-});
+},undefined,['saveBasics','saveRecurring','saveEvent']));

@@ -9,5 +9,6 @@ for(const [name,action,method] of [['conditions','saveBasics','recordCash'],['co
   if(name==='future')page.data.simulationResult={patch:{changes:[]}};
   const pending=page[action]();assert.equal(writes,1);assert.equal(toasts,0);await page[action]();assert.equal(writes,1);
   release();await pending;assert.equal(toasts,1);assert.equal(typeof page.onAccountChange,'function');
-  page.data.simulationResult={private:true};page.onAccountChange();assert.notDeepEqual(page.data.simulationResult,{private:true});
+  if(name==='future'){page.data.simulationResult={private:true};page.onAccountChange();assert.equal(page.data.simulationResult,null);}
+  else{page.data.basicsDraft.balance='private balance';page.onAccountChange();assert.equal(page.data.basicsDraft.balance,'');}
 });
