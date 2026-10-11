@@ -50,7 +50,9 @@ function toCents(value) {
 }
 
 function clone(value) {
-  return value == null ? value : structuredClone(value);
+  // Reality and Scenario use JSON-serializable records on both platforms.
+  if (value == null) return value;
+  return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
 function normalizeCondition(item, index) {
@@ -827,7 +829,9 @@ function patchedReality(source, patch) {
 export function describeScenarioOperation(operation, reality = {}) {
   const condition = Array.isArray(reality.conditions) ? reality.conditions.find((item) => item.id === operation.conditionId) : null;
   const conditionName = condition?.name || ({ balance: '现金起点', reserve: '保留边界', daily_floor: '最低日常支出' })[condition?.type] || '未命名条件';
-  const amount = (value) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 2 }).format(value);
+  const amount = (value) => typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function'
+    ? new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 2 }).format(value)
+    : `¥${Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   const cadence = { daily: '每天', weekly: '每周', monthly: '每月', once: '一次' };
   const fieldLabels = { frequency: '频率', startDate: '开始日期', endDate: '结束日期', nextOccurrence: '日期', includedInDailyFloor: '日常支出包含状态' };
   if (operation.type === 'set_condition') return `${conditionName} · ${operation.field === 'amount' ? `金额改为 ${amount(operation.value)}` : `${fieldLabels[operation.field] || '条件'}改为 ${operation.field === 'frequency' ? cadence[operation.value] : operation.value}`}`;

@@ -41,3 +41,101 @@ test('temporal memory and draft lifecycle are available identically without nati
   assert.deepEqual(json(mini.saveScenarioDraft(reality,patch)),json(web.saveScenarioDraft(reality,patch)));
   assert.deepEqual(json(mini.deleteScenarioDraft(reality,'missing')),json(web.deleteScenarioDraft(reality,'missing')));
 });
+
+for(const platform of ['web','mini']){
+  async function engine(){return platform==='web'?import('../src/v8-cash-reality.js'):nativeEngine();}
+  test(`[${platform}] occurrence confirmation has four explicit outcomes and prevents premature or repeated writes`,async()=>{
+    const e=await engine();const options={asOf:'2027-01-05',resolvedAt:'2027-01-05T01:00:00Z',id:'resolution',eventId:'event',captureSource:'quick_occurrence'};
+    const occurrence=e.buildExpectedOccurrences(reality,{asOf:options.asOf}).find(item=>item.expectedDate===options.asOf&&item.conditionId==='income');
+    assert.ok(occurrence);
+    for(const input of [{result:'as_expected'},{result:'amount_changed',actualAmount:4000.23},
+      {result:'date_changed',actualDate:'2027-01-04',actualAmount:4200.11},{result:'did_not_occur'}]){
+      const result=e.reconcileExpectedOccurrence(reality,occurrence.id,input,options);
+      assert.equal(result.resolution.result,input.result);
+      assert.equal(result.reality.occurrenceResolutions.length,1);
+      assert.equal(result.reality.events.length,input.result==='did_not_occur'?0:1);
+      assert.throws(()=>e.reconcileExpectedOccurrence(result.reality,occurrence.id,input,options),/已经核对/);
+    }
+    for(const input of [{result:'unknown'},{result:'amount_changed',actualAmount:-1},
+      {result:'date_changed',actualDate:'2027-01-06'},{result:'date_changed',actualDate:'2027-01-04',actualAmount:-1}])
+      assert.throws(()=>e.reconcileExpectedOccurrence(reality,occurrence.id,input,options));
+    assert.throws(()=>e.reconcileExpectedOccurrence(reality,'missing',{result:'as_expected'},options),/找不到/);
+    assert.throws(()=>e.reconcileExpectedOccurrence(reality,occurrence.id,{result:'as_expected'},{asOf:'2026-12-28'}),/尚未到期/);
+    assert.throws(()=>e.reconcileExpectedOccurrence(reality,occurrence.id,{result:'as_expected'},{asOf:'bad'}),/日期/);
+  });
+  test(`[${platform}] historical comparisons use actual confirmed dates and unchanged facts do not create new memories`,async()=>{
+    const e=await engine();const options={asOf:'2026-12-28',horizonDays:30,capturedAt:'2026-12-28T00:00:00Z',realitySnapshotId:'r1',forecastSnapshotId:'f1'};
+    const first=e.captureTemporalMemory(reality,options);
+    assert.equal(first.created,true);
+    assert.equal(e.captureTemporalMemory(first.reality,options).created,false);
+    const changed=json(first.reality);changed.conditions[0]={...changed.conditions[0],amount:5500,confirmedAt:'2026-12-29T01:00:00Z'};
+    const second=e.captureTemporalMemory(changed,{...options,asOf:'2026-12-29',realitySnapshotId:'r2',forecastSnapshotId:'f2'});
+    const comparison=e.compareForecastSnapshotToReality(second.reality,'f1','r2');
+    assert.equal(comparison.actualBalanceCents,550000);assert.equal(comparison.tone,'neutral');
+    assert.equal(e.buildTemporalMemorySummary(second.reality).comparisons.length,1);
+    assert.equal(e.compareForecastSnapshotToReality(second.reality,'missing','r2'),null);
+    assert.equal(e.captureTemporalMemory({},options).created,false);
+    assert.throws(()=>e.captureTemporalMemory(reality,{asOf:'invalid'}),/日期/);
+    assert.equal(e.buildTemporalMemorySummary({}).latestRealitySnapshot,null);
+  });
+  test(`[${platform}] all scenario operations remain hypothetical and saved drafts replace only their own ID`,async()=>{
+    const e=await engine();const source=json(reality);const options={asOf:'2026-12-28',horizonDays:90};
+    const operations=[{type:'set_status',conditionId:'income',status:'paused',effectiveDate:'2027-01-20'},
+      {type:'set_status',conditionId:'income',status:'confirmed'},
+      {type:'set_condition',conditionId:'daily',field:'frequency',value:'weekly'},
+      {type:'add_recurring',name:'fixture income',cashflow:'income',amount:500.27,frequency:'weekly',nextOccurrence:'2027-01-01',endDate:'2027-02-01'},
+      {type:'add_recurring',name:'fixture expense',cashflow:'expense',amount:300.37,frequency:'monthly',nextOccurrence:'2027-01-10'},
+      {type:'add_one_off',name:'fixture one-off',cashflow:'income',amount:600.18,occurredAt:'2027-01-12'}];
+    const patch=e.createScenarioPatch({id:'s1',name:'fixture',operations,createdAt:'2026-12-28T00:00:00Z'});
+    assert.equal(e.runScenarioPatch(source,patch,options).operationSummaries.length,operations.length);
+    assert.deepEqual(json(source),json(reality));
+    const saved=e.saveScenarioDraft(source,patch);const replaced=e.saveScenarioDraft(saved,{...patch,name:'new name'});
+    assert.equal(replaced.scenarioDrafts.length,1);assert.equal(replaced.scenarioDrafts[0].neverApplyToReality,true);
+    assert.equal(e.deleteScenarioDraft(replaced,'s1').scenarioDrafts.length,0);
+    assert.throws(()=>e.runScenarioPatch(source,e.createScenarioPatch({operations:[{type:'set_condition',conditionId:'missing',field:'amount',value:5}]}),options),/找不到/);
+    for(const operation of [null,{type:'unknown'},{type:'set_condition',conditionId:'daily',field:'amount',value:-1},
+      {type:'set_condition',conditionId:'daily',field:'startDate',value:'bad'},
+      {type:'set_condition',conditionId:'daily',field:'frequency',value:'bad'},
+      {type:'set_condition',conditionId:'daily',field:'includedInDailyFloor',value:'yes'},
+      {type:'set_status',conditionId:'daily',status:'ended'},
+      {type:'set_status',conditionId:'daily',status:'paused',effectiveDate:'bad'},
+      {type:'add_one_off',name:'',cashflow:'expense',amount:1,occurredAt:'2027-01-01'},
+      {type:'add_one_off',name:'fixture',cashflow:'expense',amount:0,occurredAt:'2027-01-01'},
+      {type:'add_recurring',name:'fixture',cashflow:'expense',amount:1,frequency:'bad',nextOccurrence:'2027-01-01'}])
+      assert.throws(()=>e.createScenarioPatch({operations:[operation]}));
+  });
+  test(`[${platform}] typed events reject invalid date/amount and preserve source isolation`,async()=>{
+    const e=await engine();const result=e.appendCashEvent(reality,{type:'income',amount:9.31,occurredAt:'2027-01-01',captureSource:'manual_balance'},
+      {id:'fixture-event',createdAt:'2027-01-01T00:00:00Z'});
+    assert.equal(result.events[0].amount,9.31);assert.equal(result.events[0].source,'user_confirmed');assert.equal(reality.events.length,0);
+    for(const input of [null,{type:'unknown'}, {type:'income',amount:1,occurredAt:'2027-02-30'},
+      {type:'income',amount:-1,occurredAt:'2027-01-01'}])assert.throws(()=>e.appendCashEvent(reality,input));
+    const projection=e.buildCashRealityProjection(reality,{asOf:'2026-12-28',horizonDays:30});
+    assert.equal(e.explainProjectionPoint(projection,'missing'),null);
+    assert.ok(e.explainProjectionPoint(projection,'2026-12-29'));
+    assert.equal(e.buildNowSummary(e.buildCashRealityProjection({},{})).status,'unknown');
+  });
+  test(`[${platform}] malformed persisted records are excluded rather than upgraded to confirmed facts`,async()=>{
+    const e=await engine();
+    const normalized=e.normalizeCashReality({conditions:[null,{type:'balance',amount:2,source:'ai'},
+      {type:'balance',amount:-1,source:'user_confirmed'},
+      {type:'daily_floor',amount:2,frequency:'bad',source:'user_confirmed'}],
+      events:[null,{type:'income',amount:1,occurredAt:'bad',source:'user_confirmed'}],
+      scenarioDrafts:[null,{savedAsDraft:true,neverApplyToReality:false,changes:[]}],
+      occurrenceResolutions:[null,{source:'user_confirmed',result:'unknown'},
+        {source:'user_confirmed',result:'as_expected',expectedDate:'2027-01-01',expectedAmount:1}],
+      realitySnapshots:[null,{source:'ai',asOf:'2027-01-01'},
+        {source:'user_confirmed',asOf:'2027-01-01',balanceCents:-1,reserveCents:1,dailyFloorCents:1}],
+      forecastSnapshots:[null,{source:'ai',asOf:'2027-01-01'},
+        {source:'derived_forecast',asOf:'2027-01-01',horizonDays:0},
+        {source:'derived_forecast',asOf:'2027-01-01',horizonDays:1,dailyBalancesCents:[1]},
+        {source:'derived_forecast',asOf:'2027-01-01',horizonDays:1,dailyBalancesCents:[1,0.5]}]});
+    for(const key of ['conditions','events','scenarioDrafts','occurrenceResolutions','realitySnapshots','forecastSnapshots'])
+      assert.equal(normalized[key].length,0);
+    for(const horizonDays of [0,367,1.2])assert.equal(e.buildCashRealityProjection(reality,{asOf:'2026-12-28',horizonDays}).valid,false);
+    assert.equal(e.buildExpectedOccurrences(reality,{asOf:'invalid'}).length,0);
+    const patch=e.createScenarioPatch({operations:[{type:'set_condition',conditionId:'income',field:'includedInDailyFloor',value:false},
+      {type:'set_condition',conditionId:'income',field:'endDate',value:'2027-01-10'}]});
+    assert.equal(e.runScenarioPatch(reality,patch,{asOf:'2026-12-28',horizonDays:30}).operationSummaries.length,2);
+  });
+}
