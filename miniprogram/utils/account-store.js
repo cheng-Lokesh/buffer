@@ -23,9 +23,10 @@ function createMiniAccountStore({local=localStore,getApp:appProvider,now=Date.no
   async function commit(action){
     if(app().accountStatus().phase!=='signed_in')return blocked();
     const owner=app().accountStatus().accountId;
+    const viewGeneration=app().accountStatus().viewGeneration;
     try{
       const result=await app().confirmAccountOperation({type:'confirm_reality',confirmedAt:new Date(now()).toISOString(),...action},{confirmed:true});
-      if(app().accountStatus().phase!=='signed_in'||app().accountStatus().accountId!==owner||result.phase==='signed_out')return blocked();
+      if(app().accountStatus().phase!=='signed_in'||app().accountStatus().accountId!==owner||app().accountStatus().viewGeneration!==viewGeneration||result.phase==='signed_out')return blocked();
       const state=load();if(state.storageError)return blocked();
       return {ok:true,state,summary:{balance:state.cash.balance},syncPhase:result.phase,pendingCount:result.pendingCount};
     }catch{return failure('这次确认未保存，请检查输入或重新登录后重试');}
