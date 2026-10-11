@@ -79,3 +79,50 @@ test('shared capture and condition modules are generated and run without structu
   assert.deepEqual(json(native.commitRealityCapture(s.cashReality,candidates,options)),json(web.commitRealityCapture(s.cashReality,candidates,options)));
   assert.equal(native.previewRealityCapture(s.cashReality,candidates,options).preview,true);
 });
+test('generated condition display and validated edits preserve names and shared schedules',async()=>{
+  const native=require('../miniprogram/core/v9-condition-identity'),web=await import('../src/v9-condition-identity.js');
+  for(const e of [native,web]){
+    assert.equal(e.normalizeConditionName(' 房租 '),'房租');assert.equal(e.normalizeConditionName(null),'');
+    assert.equal(e.conditionDisplayName({type:'balance'}),'现金起点');assert.equal(e.conditionDisplayName({type:'recurring_income'}),'未命名固定收入');
+    assert.equal(e.conditionDisplayName({type:'unknown'}),'未命名现实条件');assert.equal(e.conditionDisplayName({type:'recurring_income',name:'工资'}),'工资');
+    for(const c of [{status:'paused'},{status:'ended',endDate:asOf},{status:'ended'},{type:'daily_floor',endDate:asOf},{type:'daily_floor'},
+      {type:'known_event',nextOccurrence:asOf},{type:'known_event'}, {frequency:'monthly',startDate:asOf,endDate:'2026-12-11'},{}])
+      assert.equal(e.conditionScheduleText(c),web.conditionScheduleText(c));
+    assert.equal(e.updateConditionDetails(state().cashReality,'rent',{name:'新房租',amount:1300},{confirmedAt}).conditions.find(c=>c.id==='rent').name,'新房租');
+    for(const [id,patch] of [['missing',{}],['rent',{name:''}],['rent',{status:'bad'}]])assert.throws(()=>e.updateConditionDetails(state().cashReality,id,patch));
+    assert.equal(e.updateConditionDetails(state().cashReality,'rent',{}).conditions.find(c=>c.id==='rent').amount,1500);
+  }
+});
+test('native provider parse validates untrusted output, and local fallback matches complete shared parser',async()=>{
+  const native=require('../miniprogram/core/v12-reality-capture-shared'),web=await import('../src/v12-reality-capture.js');
+  for(const e of [native,web]){
+    const context=e.buildRealityCaptureContext(state().cashReality,{asOf});
+    for(const text of ['下个月31号开始，每月工资3000','下个月15号开始，每月工资','以后房租改成1600','以后房租改成','工资到了，但是2900','工资到账','今天和平常一样']){
+      const expected=await web.parseRealityMessage(text,context);assert.deepEqual(json(e.parseDeterministicRealityMessage(text,context)),json(expected));
+    }
+    for(const raw of [null,{status:'unknown'},{status:'candidates',candidates:[{type:'unknown'}]},
+      {status:'clarification',choices:[{},null,{expectedAmount:-1}]},{status:'scenario'},{status:'clarification'}]){
+      const result=await e.parseRealityMessage('合成输入',context,{parse:async()=>raw});
+      assert.deepEqual(json(result),json(await web.parseRealityMessage('合成输入',context,{parse:async()=>raw})));
+    }
+    assert.equal((await e.parseRealityMessage('输入',context,{parse:async()=>{throw Error('fixture failure');}})).manualFallback,true);
+    assert.equal((await e.parseRealityMessage('输入',context,{})).canRetry,true);
+    assert.equal((await e.parseRealityMessage('',context)).canRetry,false);
+    assert.equal((await e.parseRealityMessage('输入',{currentDate:'bad'})).canRetry,false);
+    assert.equal(e.parseDeterministicRealityMessage('',context).status,'error');
+    assert.equal(e.parseDeterministicRealityMessage('输入',{}).status,'error');
+    assert.equal(e.parseDeterministicRealityMessage('工资到了',{currentDate:asOf}).manualFallback,true);
+    const ambiguous={...context,dueOccurrences:[...context.dueOccurrences,...context.dueOccurrences]};
+    assert.equal(e.parseDeterministicRealityMessage('工资到账了',ambiguous).status,'clarification');
+    const empty=e.buildRealityCaptureContext({}, {asOf});
+    assert.equal(e.parseDeterministicRealityMessage('今天工资到账8500',empty).candidates[0].type,'one_off_income');
+    assert.equal(e.parseDeterministicRealityMessage('工资到账了',empty).status,'clarification');
+    assert.equal(e.parseDeterministicRealityMessage('以后房租改成1600',empty).status,'clarification');
+    assert.equal(e.commitRealityCapture({},[{type:'balance_confirmation',amount:2}],options).summary.balanceAfter,2);
+    assert.equal(e.previewRealityCapture({},[{type:'balance_confirmation',amount:2}],{asOf}).preview,true);
+  }
+  assert.equal(mini.parseMiniRealityMessage('输入',{asOf:'bad'}).status,'error');
+  assert.equal(mini.parseMiniRealityMessage('现在20').status,'candidates');
+  assert.equal(mini.buildMiniDueOccurrences(null).length,0);
+  assert.equal(mini.applyMiniRealityCapture(state(),[{type:'balance_confirmation',amount:20}]).ok,true);
+});

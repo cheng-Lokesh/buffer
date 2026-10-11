@@ -4,6 +4,7 @@ const { getSkin } = require('../../core/skins');
 const { formatMoney, formatTime, applySkinChrome } = require('../../utils/view');
 const { createSceneState } = require('../../core/viewport');
 const { parseMiniRealityMessage, buildMiniDueOccurrences } = require('../../core/v12-reality-capture');
+const { shanghaiDate } = require('../../core/forecast-lookup');
 
 const ZONES = [
   { id: 'survival', label: '生死期', range: '<15天' },
@@ -51,13 +52,13 @@ Page({
   confirmBalance() {
     const amount = Number(this.data.captureBalance);
     if (!Number.isFinite(amount) || amount < 0) return this.setData({ captureMessage: '请输入实际可用现金总额' });
-    const result = store.captureReality([{ type: 'balance_confirmation', amount, occurredAt: new Date().toISOString().slice(0, 10) }], { provenance: 'manual_balance' });
+    const result = store.captureReality([{ type: 'balance_confirmation', amount, occurredAt: shanghaiDate() }], { provenance: 'manual_balance' });
     if (!result.ok) return this.setData({ captureMessage: result.message || '本机保存失败' });
     this.setData({ captureMode: 'complete', captureMessage: '', balanceLabel: formatMoney(result.summary.balance) });
     this.refresh();
   },
   parseNatural() {
-    const result = parseMiniRealityMessage(this.data.captureText, { asOf: new Date().toISOString().slice(0, 10) });
+    const result = parseMiniRealityMessage(this.data.captureText, { asOf: shanghaiDate(), state: store.load() });
     if (result.status !== 'candidates') return this.setData({ captureMessage: result.message, candidateItems: [] });
     const labels = { balance_confirmation: '当前余额', one_off_income: '已发生收入', one_off_expense: '已发生支出', recurring_income: '固定收入', recurring_expense: '固定支出' };
     const candidateItems = result.candidates.map((item, index) => ({ ...item, index, label: labels[item.type] || '现实变化', amountLabel: formatMoney(item.amount), direction: item.type === 'one_off_expense' ? '−' : item.type === 'one_off_income' ? '＋' : '' }));

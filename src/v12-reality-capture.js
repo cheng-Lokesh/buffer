@@ -40,6 +40,10 @@ function isRecord(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function cloneCaptureValue(value) {
+  return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+}
+
 function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split('-').map(Number);
@@ -276,7 +280,7 @@ export function commitRealityCapture(source, values, options = {}) {
   const nextId = idFactory(options);
   const balanceBefore = context.currentBalance;
   const anchor = validation.candidates.find((item) => item.type === 'balance_confirmation');
-  let next = normalizeCashReality(structuredClone(source));
+  let next = normalizeCashReality(cloneCaptureValue(source));
   for (const candidate of validation.candidates) next = applyCandidate(next, candidate, context, { ...options, confirmedAt }, nextId);
 
   if (anchor) {
@@ -292,7 +296,7 @@ export function commitRealityCapture(source, values, options = {}) {
   const balanceAfter = next.conditions.find((item) => item.type === 'balance' && item.status === 'confirmed')?.amount ?? null;
   return {
     reality: next,
-    candidates: structuredClone(validation.candidates),
+    candidates: cloneCaptureValue(validation.candidates),
     summary: {
       changeCount: validation.candidates.length,
       balanceBefore,
@@ -387,6 +391,16 @@ export function createDeterministicRealityParserAdapter() {
   });
 }
 
+// Synchronous local entry for native controls. Uses the same parser and result
+// validation as the asynchronous provider entry; never commits or persists.
+export function parseDeterministicRealityMessage(text, context) {
+  const message = cleanText(text, 1000);
+  if (!message) return { status: 'error', candidates: [], message: '请先写下发生了什么。', canRetry: false, manualFallback: true };
+  if (!isRecord(context) || !validDate(context.currentDate)) return { status: 'error', candidates: [], message: '现实上下文无效。', canRetry: false, manualFallback: true };
+  try { return cleanParserResult(deterministicParse(message, context), context); }
+  catch { return { status: 'error', candidates: [], message: '暂时无法解析这句话。', canRetry: true, manualFallback: true }; }
+}
+
 function cleanParserResult(raw, context) {
   if (!isRecord(raw)) throw new Error('解析结果无效。');
   if (raw.status === 'scenario') return { status: 'scenario', candidates: [], message: cleanText(raw.message, 160) || '这是一个模拟变化。' };
@@ -414,7 +428,7 @@ export async function parseRealityMessage(text, context, adapter = createDetermi
   if (!isRecord(context) || !validDate(context.currentDate)) return { status: 'error', candidates: [], message: '现实上下文无效。', canRetry: false, manualFallback: true };
   if (!adapter || typeof adapter.parse !== 'function') return { status: 'error', candidates: [], message: '暂时无法解析这句话。', canRetry: true, manualFallback: true };
   try {
-    const raw = await adapter.parse(message, structuredClone(context));
+    const raw = await adapter.parse(message, cloneCaptureValue(context));
     return cleanParserResult(raw, context);
   } catch {
     return { status: 'error', candidates: [], message: '暂时无法解析这句话。', canRetry: true, manualFallback: true };
