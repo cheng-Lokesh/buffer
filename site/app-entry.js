@@ -10,6 +10,7 @@ import { buildNowForecastChart } from '../src/v12-1-now-forecast-chart.js';
 import { createBalanceAxis, formatChartAmount } from '../src/v12-1-chart-axis.js';
 import { parseLookupCents, findBalanceDay, shanghaiDate } from '../src/forecast-lookup.js';
 import { parseBillCsv, summarizeBillRows, setBillRowStatus, includeClearBillRows } from '../src/bill-observation.js';
+import { mountSiteAccountEntry } from './account-entry.js';
 
 const SITE_APPEARANCE = 'ink-contours';
 
@@ -35,6 +36,22 @@ let nowSelectedDay = null;
 let futureSelectedDay = null;
 let billError = '';
 const parser = createV12_1RealityParser();
+let displayedScope='local';
+const accountEntry=mountSiteAccountEntry({modal,onChange:view=>{
+  const accountMode=['signed_in','session_expired'].includes(view.auth.phase);
+  const nextScope=accountMode?JSON.stringify([view.auth.accountId,view.generation]):'local';
+  if(nextScope!==displayedScope){pending=null;scenarioResult=null;billRows=[];billError='';nowSelectedDay=null;futureSelectedDay=null;document.querySelector('.live-modal')?.remove();displayedScope=nextScope;}
+  state=accountMode?{...(view.sync.state||{}),schemaVersion:9,visualSkinId:SITE_APPEARANCE,cashReality:normalizeCashReality(view.sync.state?.cashReality)}:loadState();
+  renderAll();
+}});
+function accountMode(){return accountEntry.status().auth.phase==='signed_in';}
+async function confirmAccount(action,fields,layer){
+  if(accountEntry.status().auth.phase==='session_expired')throw Error('请重新登录后再确认。');
+  if(!accountMode())return false;
+  if(layer&&!layer.isConnected)throw Error('确认页面已关闭，请重新操作。');
+  await accountEntry.confirm(action,fields,{confirmed:true,scope:layer?.accountScope||accountEntry.scope()});
+  return true;
+}
 
 function loadJson(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch { return fallback; }
@@ -62,8 +79,8 @@ function completeReality(reality, reason) {
 }
 
 function saveReality(reality, reason = 'reality_confirmed') {
-  state = { ...state, cashReality: completeReality(reality, reason) };
-  const payload = buildProductStateEnvelope(state);
+  if(accountMode())throw Error('账号确认必须通过同步接口。');
+  const payload = buildProductStateEnvelope({ ...state, cashReality: completeReality(reality, reason) });
   const result = persistProductState(localStorage, {
     stateKey: STATE_KEY,
     recoveryKey: RECOVERY_KEY,
@@ -610,7 +627,7 @@ function bindActions(root) {
   root.querySelector('[data-role="backup-file"]')?.addEventListener('change', restoreFile);
 }
 
-function action(name, data = {}) {
+async function action(name, data = {}) {
   if (name === 'show-bills') { billView = 'bills'; return renderRecords(); }
   if (name === 'show-confirmed') { billView = 'confirmed'; return renderRecords(); }
   if (name === 'bill-import') return document.querySelector('[data-role="bill-file"]')?.click();
@@ -649,6 +666,8 @@ function action(name, data = {}) {
     return renderFuture();
   }
   if (name === 'save-scenario' && scenarioResult) {
+    try{if(await confirmAccount('save_scenario',{patch:scenarioResult.patch})){renderFuture();return;}}
+    catch{return alert('试算未保存，请检查登录与同步状态。');}
     state = { ...state, cashReality: saveScenarioDraft(state.cashReality, scenarioResult.patch) };
     savePreferences();
     renderFuture();
@@ -663,6 +682,7 @@ function modal(content, label = '') {
   document.querySelector('.live-modal')?.remove();
   const previousFocus = document.activeElement;
   const layer = document.createElement('div');
+  layer.accountScope=accountEntry?.scope();
   layer.className = 'live-modal';
   layer.innerHTML = `<section role="dialog" aria-modal="true">${content}</section>`;
   document.body.append(layer);
@@ -699,7 +719,9 @@ function openBaseline(initialValues = {}) {
     if (Object.values(values).some((value) => !String(value).trim()) || Object.values(numbers).some((value) => !Number.isFinite(value) || value < 0)) return showMessage(layer, '请填写有效的非负金额。');
     layer.querySelector('section').innerHTML = `<header><div><span>保存前核对</span><h2>请确认这三个金额</h2></div></header><div class="live-confirm"><p>当前余额 <strong>${money(numbers.balance)}</strong></p><p>保留金额 <strong>${money(numbers.reserve)}</strong></p><p>每日最低支出 <strong>${money(numbers.daily)} / 天</strong></p></div><footer><button type="button" data-back>返回修改</button><button class="live-primary" type="button" data-confirm>确认保存</button></footer>`;
     layer.querySelector('[data-back]').addEventListener('click', () => openBaseline(values));
-    layer.querySelector('[data-confirm]').addEventListener('click', () => {
+    layer.querySelector('[data-confirm]').addEventListener('click', async () => {
+      try{if(await confirmAccount('confirm_basics',{cash:numbers},layer)){layer.remove();return;}}
+      catch{return alert('确认未保存，请检查账号和同步状态。');}
       const confirmedAt = nowIso();
       const date = today();
       const reality = normalizeCashReality({ conditions: [
@@ -801,9 +823,11 @@ function openPrecise(conditionId = '') {
       if (amount === Number(item.amount)) return showMessage(layer, '金额没有变化，无需重复保存。');
       layer.querySelector('section').innerHTML = `<header><div><span>保存前核对</span><h2>${escapeHtml(displayName(item.name || conditionLabel(item)))}</h2></div><button type="button" data-close aria-label="关闭">×</button></header><div class="live-confirm"><p>原金额 <strong>${money(item.amount)}</strong></p><p>新金额 <strong>${money(amount)}</strong></p></div><footer><button type="button" data-back>返回修改</button><button class="live-primary" type="button" data-confirm>确认保存</button></footer>`;
       layer.querySelector('[data-back]').addEventListener('click', () => { renderEdit(item.id, rawAmount); layer.querySelector('[name="amount"]').focus(); });
-      layer.querySelector('[data-confirm]').addEventListener('click', () => {
-        if (item.type === 'balance') commitCandidates([{ type: 'balance_confirmation', amount, occurredAt: today() }], 'precise_edit');
+      layer.querySelector('[data-confirm]').addEventListener('click', async () => {
+        if (item.type === 'balance') await commitCandidates([{ type: 'balance_confirmation', amount, occurredAt: today() }], 'precise_edit',layer);
         else {
+          try{if(await confirmAccount('edit_condition',{conditionId:item.id,patch:{amount}},layer)){layer.remove();return;}}
+          catch{return alert('修改未保存，请检查账号和同步状态。');}
           const reality = normalizeCashReality({ ...state.cashReality, conditions: state.cashReality.conditions.map((entry) => entry.id === item.id ? { ...entry, amount, confirmedAt: nowIso(), captureSource: 'precise_edit' } : entry) });
           saveReality(reality, 'precise_edit_confirmed');
         }
@@ -844,8 +868,9 @@ function openScenario() {
   });
 }
 
-function commitCandidates(candidates, provenance) {
+async function commitCandidates(candidates, provenance,layer) {
   try {
+    if(await confirmAccount('capture',{candidates,provenance},layer))return;
     const result = commitRealityCapture(state.cashReality, candidates, { asOf: today(), confirmedAt: nowIso(), provenance });
     saveReality(result.reality, 'reality_capture_confirmed');
   } catch (error) {
@@ -885,10 +910,19 @@ async function restoreFile(event) {
     const portable = preparePortableBackup(value, { fileSize: file.size });
     if (!portable.ok) return alert(portable.message);
     const preview = {payload:portable.payload,skippedItems:0,summary:{fileName:file.name,schemaVersion:9,cashConditions:portable.summary.conditions,cashEvents:portable.summary.events}};
+    const restoreScope=accountEntry.scope();
+    const migration=accountMode()?accountEntry.previewMigration(preview.payload,{scope:restoreScope}):null;
     const layer = modal(`<header><div><span>恢复前核对</span><h2>${escapeHtml(preview.summary.fileName)}</h2><p>包含 ${preview.summary.cashConditions} 个已确认项目和 ${preview.summary.cashEvents} 条收支记录。</p></div><button type="button" data-close aria-label="关闭">×</button></header><div class="live-confirm"><p>备份版本 <strong>${preview.summary.schemaVersion}</strong></p><p>无法使用的内容 <strong>${preview.skippedItems}</strong></p></div><footer><button type="button" data-close-again>取消</button><button class="live-primary" type="button" data-restore>确认恢复</button></footer>`, '恢复备份');
     layer.querySelector('[data-close-again]').addEventListener('click', () => layer.remove());
-    layer.querySelector('[data-restore]').addEventListener('click', () => {
+    layer.querySelector('[data-restore]').addEventListener('click', async () => {
       try {
+        if(migration){
+          if(!confirm('将备份恢复到当前空账号，并同步到其他设备。本机旧数据不会删除。是否继续？'))return;
+          const result=await accountEntry.confirmMigration(migration,{confirmed:true,scope:restoreScope});
+          if(result.phase!=='synced'||result.pendingCount)throw Error('restore_not_synced');
+          layer.remove();return;
+        }
+        if(accountMode())throw Error('restore_scope_changed');
         const payload = {...preview.payload,visualSkinId:SITE_APPEARANCE};
         const result = persistProductState(localStorage,{stateKey:STATE_KEY,recoveryKey:RECOVERY_KEY,payload,recoveryVault,id:`recovery-${Date.now()}`,createdAt:nowIso()});
         if (!result.ok) throw new Error('restore_save_failed');
