@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-for (const [name, expectedExports] of [['forecast-lookup',4],['account-sync-client',1]]) {
+for (const [name, expectedExports] of [['forecast-lookup',4],['account-sync-client',1],['wechat-account-session',1]]) {
 const source = new URL(`../src/${name}.js`, import.meta.url);
 const target = new URL(`../miniprogram/core/${name}.js`, import.meta.url);
 const text = readFileSync(source, 'utf8').replace(/\r\n/g, '\n');
