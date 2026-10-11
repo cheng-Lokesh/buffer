@@ -36,3 +36,19 @@ test('financial runtime is explicitly configured and uses end-user bearer, never
     assert.equal(financialCalls,1);
   } finally {await new Promise(resolve=>server.close(resolve));}
 });
+test('browser runtime is opt-in and composes encrypted RPC storage with a separate durable admission scope',async()=>{
+  const calls=[];const pair={enabled:true,backendKey:'a'.repeat(64),encryptionKey:'b'.repeat(64)};
+  const server=await create({config:{...config,pair},fetchImpl:async(input,init)=>{
+    const url=String(input);calls.push({url,init});
+    if(url.endsWith('/signin'))return Response.json({access_token:token,refresh_token:'fixture-refresh',expires_in:3600,sub:config.serviceUserId});
+    if(url.endsWith('/user/me'))return Response.json({sub:config.serviceUserId,username:'buffer-login-service'});
+    if(url.endsWith('/buffer_login_admit')){assert.equal(JSON.parse(init.body).p_scope,config.appId+'_pair');return Response.json(true);}
+    if(url.endsWith('/buffer_pair_create')){const body=JSON.parse(init.body);assert.equal(body.p_key,pair.backendKey);assert.match(body.p_browser,/^[a-f0-9]{64}$/);return Response.json(true);}
+    throw Error('unexpected provider fixture');
+  }});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try {const response=await fetch(`http://127.0.0.1:${server.address().port}/api/auth/browser/create`,{method:'POST',headers:{origin:config.allowedOrigin,'content-type':'application/json'},body:JSON.stringify({browserSecret:'A'.repeat(43)})});
+    assert.equal(response.status,200);assert.equal((await response.json()).expiresIn,120);assert.equal(calls.length,4);
+  }finally{await new Promise(resolve=>server.close(resolve));}
+  for(const invalid of [{enabled:false},{...pair,encryptionKey:'bad'},{...pair,extra:true}])await assert.rejects(create({config:{...config,pair:invalid},fetchImpl:async()=>Response.json({})}),/cloud_login_startup_failed/);
+});
