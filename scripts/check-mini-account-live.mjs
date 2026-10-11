@@ -65,7 +65,7 @@ try {
     await until(async()=>await phase()==='signed_in'||await phase()==='login_failed');
     assert.equal(await phase(),'signed_in');
     await until(async()=>await current.component.data('label')==='微信已登录');
-    assert.equal(await current.component.data('message'),'本机数据未上传');
+    assert.equal(await fingerprint(),original,'local_state_changed');
     for (const space of ['future','conditions','history','reality']) {
       stage=`${space}_shared_session`;
       await mini.switchTab(`/pages/${space}/index`);
