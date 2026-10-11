@@ -5,6 +5,13 @@ const counter = value => Number.isSafeInteger(value) && value >= 0;
 const emptyView = () => ({protocolVersion:1,schemaVersion:9,revision:0,deletionGeneration:0,state:null});
 const validView = value => object(value) && value.protocolVersion === 1 && value.schemaVersion === 9 && counter(value.revision) && counter(value.deletionGeneration) && (value.state === null || object(value.state));
 const operationTypes = new Set(['confirm_reality','import_local','delete_all']);
+const checkCommandSize=command=>{
+  let bytes=0;
+  for(const char of JSON.stringify(command)){
+    const code=char.codePointAt(0);bytes+=code<128?1:code<2048?2:code<65536?3:4;
+    if(bytes>32768)throw new Error('sync_command_too_large');
+  }
+};
 
 /** Supply account identity only after real authentication. Transport must use the
  * current verified session, not a client-supplied owner field. Storage writes must
@@ -75,6 +82,7 @@ export function createAccountSyncClient({storage,transport,createOperationId} = 
     const baseRevision=cache.server.revision+cache.queue.length;
     if (!counter(baseRevision+1)) throw new Error('revision_exhausted');
     const command={protocolVersion:1,schemaVersion:9,operationId,baseRevision,deletionGeneration:cache.server.deletionGeneration,confirmed:true,operation:copy(operation)};
+    checkCommandSize(command);
     persist({...cache,localState:copy(confirmedState),queue:[...cache.queue,command]});phase='pending';
     return status();
   }
@@ -124,6 +132,7 @@ export function createAccountSyncClient({storage,transport,createOperationId} = 
     const operationId=createOperationId();
     if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(operationId)) throw new Error('invalid_operation_id');
     const command={protocolVersion:1,schemaVersion:9,operationId,baseRevision:cache.server.revision,deletionGeneration:cache.server.deletionGeneration,confirmed:true,migrationApproved:true,operation:{type:'import_local',state:copy(preview)}};
+    checkCommandSize(command);
     persist({...cache,localState:copy(preview),queue:[command]});migrationPreview=null;phase='pending';return status();
   }
   return {activateAccount,logout,status,refresh,flush,enqueueConfirmed,acceptCloudVersion,previewMigration,confirmMigration,pendingOperations:()=>copy(cache.queue)};
