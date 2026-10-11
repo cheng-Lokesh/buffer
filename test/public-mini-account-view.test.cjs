@@ -16,3 +16,9 @@ test('real account component notifies active page after approved login and logou
   const component={...definition.methods,data:structuredClone(definition.data),setData(value){Object.assign(this.data,value);}};
   await component.activate();assert.equal(resets,1);await component.activate();assert.equal(resets,2);confirm=false;await component.activate();assert.equal(resets,2);
 });
+test('local/default page lifecycle remains usable without optional refresh or account hooks',()=>{
+  const {withAccountView}=require('../miniprogram/utils/account-view');
+  const empty=withAccountView({});const page={...empty,setData(){}};page.onShow();page.onAccountChange();
+  let calls=0;const definition=withAccountView({data:{draft:''},onShow(){calls++;}});
+  const p={...definition,setData(){}};p.onShow();p.onShow();assert.equal(calls,2);
+});

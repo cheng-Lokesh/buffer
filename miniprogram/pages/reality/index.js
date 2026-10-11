@@ -1,4 +1,5 @@
 const store = require('../../utils/account-store');
+const {withAccountView}=require('../../utils/account-view');
 const { buildRealityModel } = require('../../core/reality');
 const { getSkin } = require('../../core/skins');
 const { formatMoney, formatTime, applySkinChrome } = require('../../utils/view');
@@ -13,7 +14,7 @@ const ZONES = [
   { id: 'safe', label: '安全期', range: '>60天' }
 ];
 
-Page({
+Page(withAccountView({
   data: {
     skin: getSkin(), skinClass: 'skin-ink-contours', rangeDays: 30,
     model: buildRealityModel(), zones: ZONES,
@@ -86,4 +87,4 @@ Page({
   },
   voiceUnavailable() { this.setData({ captureMessage: '小程序语音转写暂不可用，请直接输入文字' }); },
   goPreciseConditions() { this.closeCapture(); wx.switchTab({ url: '/pages/conditions/index' }); }
-});
+}));

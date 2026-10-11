@@ -3,6 +3,9 @@ Component({
   lifetimes:{attached(){this.refresh();}},
   pageLifetimes:{show(){this.refresh();}},
   methods:{
+    notifyPage(){
+      try{if(typeof getCurrentPages==='function'){const pages=getCurrentPages();pages[pages.length-1]?.onAccountChange?.();}}catch{}
+    },
     refresh(){
       if(this.data.confirming||this.data.busy)return;
       const phase=getApp().accountStatus().phase;
@@ -21,9 +24,9 @@ Component({
       }));
       this.setData({confirming:false});
       if(!approved)return;
-      if(signedIn){app.logoutAccount();this.refresh();return;}
+      if(signedIn){app.logoutAccount();this.notifyPage();this.refresh();return;}
       this.setData({busy:true,label:'正在登录',message:''});
-      try{await app.loginWechat();this.setData({busy:false});this.refresh();}
+      try{await app.loginWechat();this.notifyPage();this.setData({busy:false});this.refresh();}
       catch{this.setData({busy:false,label:'重新登录',message:'登录未完成，请重试'});}
     }
   }
