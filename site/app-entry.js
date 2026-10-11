@@ -38,7 +38,7 @@ let futureSelectedDay = null;
 let billError = '';
 const parser = createV12_1RealityParser();
 let displayedScope='local';
-const accountEntry=mountSiteAccountEntry({modal,onChange:view=>{
+const accountEntry=mountSiteAccountEntry({modal,downloadBackup:exportBackup,onChange:view=>{
   const accountMode=['signed_in','session_expired'].includes(view.auth.phase);
   const nextScope=accountMode?JSON.stringify([view.auth.accountId,view.generation]):'local';
   if(nextScope!==displayedScope){pending=null;scenarioResult=null;billRows=[];billError='';nowSelectedDay=null;futureSelectedDay=null;document.querySelector('.live-modal')?.remove();displayedScope=nextScope;}
@@ -905,6 +905,7 @@ function exportBackup() {
   anchor.download = `buffer-backup-${today()}.json`;
   anchor.click();
   URL.revokeObjectURL(anchor.href);
+  return true;
 }
 
 async function restoreFile(event) {

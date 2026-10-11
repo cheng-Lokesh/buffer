@@ -1,5 +1,6 @@
 import {createBrowserAccountRuntime,ACCOUNT_SERVER} from '../src/browser-account-runtime.js';
 import {createBrowserPairingClient} from '../src/browser-pairing-client.js';
+import {createBrowserConflictActions} from '../src/browser-conflict-actions.js';
 
 async function request(input){
   const response=await fetch(input.url,{method:input.method,headers:input.headers,credentials:'omit',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(10000),...(input.body?{body:JSON.stringify(input.body)}:{})});
@@ -10,7 +11,7 @@ async function request(input){
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
   return {status:response.status,body:JSON.parse(new TextDecoder().decode(bytes))};
 }
-export function mountSiteAccountEntry({modal,onChange}){
+export function mountSiteAccountEntry({modal,onChange,downloadBackup}){
   const button=document.querySelector('[data-account-entry]');let layer=null;
   const pairing=createBrowserPairingClient({baseUrl:ACCOUNT_SERVER,request,onChallenge:value=>{
     if(!layer?.isConnected){pairing.cancel();return;}
@@ -25,8 +26,12 @@ export function mountSiteAccountEntry({modal,onChange}){
   button.addEventListener('click',()=>{
     if(runtime.status().auth.phase==='signed_in'){
       const current=runtime.scope();
-      layer=modal('<header><h2>账号</h2><button type="button" data-close aria-label="关闭">×</button></header><p data-account-message></p><div class="live-actions"><button type="button" data-retry>重新同步</button><button type="button" data-logout>退出账号</button><button type="button" data-delete>删除账号数据</button></div>','账号');
-      layer.querySelector('[data-account-message]').textContent=messages[runtime.status().sync.phase]||'正在连接';
+      const sync=runtime.status().sync;
+      const actions=sync.phase==='conflict'?createBrowserConflictActions({getScope:runtime.scope,getSync:()=>runtime.status().sync,downloadBackup:()=>{if(!accountMode())throw Error('account_scope_changed');downloadBackup();},confirm:({pendingCount})=>confirm(`采用云端版本后，本设备 ${pendingCount} 项待同步变更将从同步队列移除。刚下载的本机备份仍可用于恢复。确认采用云端版本？`),accept:options=>runtime.acceptCloudVersion(options)}):null;
+      layer=modal(`<header><h2>账号</h2><button type="button" data-close aria-label="关闭">×</button></header><p data-account-message></p>${actions?`<section class="live-confirm"><strong>核对本机与云端版本</strong><p>本机：${sync.pendingCount} 项待同步，版本 ${sync.revision}</p><p>云端：版本 ${sync.conflict.revision}，${sync.conflict.state?.cashReality?.conditions?.length||0} 项已确认，${sync.conflict.state?.cashReality?.events?.length||0} 条收支记录</p><button type="button" data-download-conflict>下载本机待同步备份</button><button type="button" data-adopt-cloud disabled>使用云端版本</button></section>`:''}<div class="live-actions"><button type="button" data-retry>重新同步</button><button type="button" data-logout>退出账号</button><button type="button" data-delete>删除账号数据</button></div>`,'账号');
+      layer.querySelector('[data-account-message]').textContent=messages[sync.phase]||'正在连接';
+      layer.querySelector('[data-download-conflict]')?.addEventListener('click',()=>{try{actions.downloadLocalBackup();const button=layer.querySelector('[data-adopt-cloud]');button.disabled=false;button.textContent='备份已下载，使用云端版本';layer.querySelector('[data-account-message]').textContent='本机待同步备份已下载。确认前可取消，原变更仍保留。';}catch{layer.querySelector('[data-account-message]').textContent='备份下载或版本核对失败，待同步内容仍保留。';}});
+      layer.querySelector('[data-adopt-cloud]')?.addEventListener('click',async()=>{try{await actions.adoptCloud();layer.querySelector('[data-account-message]').textContent='已采用云端版本。';}catch{layer.querySelector('[data-account-message]').textContent='版本已变化或账号已切换，待同步内容仍保留，请重新核对。';}});
       layer.querySelector('[data-retry]').onclick=async()=>{try{await runtime.refresh();layer.querySelector('[data-account-message]').textContent=messages[runtime.status().sync.phase]||'正在连接';}catch{}};
       layer.querySelector('[data-logout]').onclick=()=>{if(confirm('退出账号，不删除本机或云端数据。')){pairing.cancel();runtime.logout();layer.remove();}};
       layer.querySelector('[data-delete]').onclick=async()=>{
