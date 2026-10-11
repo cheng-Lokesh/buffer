@@ -1,0 +1,4 @@
+<view class="account-entry">
+  <button class="account-button" bindtap="activate" disabled="{{busy || confirming}}" loading="{{busy}}" aria-label="{{label}}">{{label}}</button>
+  <text class="account-message" wx:if="{{message}}">{{message}}</text>
+</view>

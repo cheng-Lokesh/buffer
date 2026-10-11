@@ -1,6 +1,6 @@
 <view class="screen {{skinClass}}" data-skin="{{skin.id}}">
   <view class="history-emblem emblem-{{skin.historyKind}}" aria-hidden="true"><view></view><view></view><view></view></view>
-  <view class="screen-head compact-head"><view><view class="eyebrow">只留下本人确认的变化</view><view class="page-title">记录与我的数据</view></view><view class="skin-badge">{{skin.shortName}}</view></view>
+  <view class="screen-head compact-head"><view><view class="eyebrow">只留下本人确认的变化</view><view class="page-title">记录与我的数据</view></view><account-entry id="accountEntry" /></view>
   <view class="scene-tabs" role="tablist" aria-label="记录视图"><button wx:for="{{scenes}}" wx:key="id" class="scene-tab {{item.active ? 'active' : ''}}" data-index="{{item.index}}" bindtap="selectScene">{{item.label}}</button></view>
   <swiper class="scene-deck" current="{{activeSceneIndex}}" bindchange="changeScene" duration="180">
     <swiper-item><view class="scene-slide">

@@ -25,6 +25,7 @@
     ]
   },
   "style": "v2",
+  "usingComponents": {"account-entry":"/components/account-entry/index"},
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }
