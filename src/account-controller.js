@@ -23,6 +23,10 @@ export function createAccountController({session,syncClient,onChange=()=>{},now=
       if(value.phase!=='signed_in'||typeof value.accountId!=='string'||!value.accountId)throw Error('authentication_required');
       scope=value.accountId;await syncClient.activateAccount(scope);
       if(stamp!==generation)throw Error('account_action_cancelled');
+      // Resume only this account's previously user-confirmed queue. This never
+      // reads or migrates legacy device storage, and conflict state stays blocked.
+      if(syncClient.status().phase==='pending'&&syncClient.status().pendingCount)await refresh();
+      if(stamp!==generation)throw Error('account_action_cancelled');
       return notify();
     })();
     loginTask=task;try{return await task;}finally{if(loginTask===task)loginTask=null;}
